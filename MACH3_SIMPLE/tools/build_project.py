@@ -12,8 +12,11 @@ Two decisions were taken on 2026-09-21 and they shape everything here:
   74HC245 buffers each LPT pin and drives the axis terminal directly, sharing
   ground with the PC. This is the cheaper, smaller arrangement and it is what
   the machine already runs on.
-* **5 V and 24 V both come from outside**, on their own terminals, again as on
-  the board in service. There is no buck and no isolated module.
+* **24 V comes from outside; 5 V is made on the board.** The board in service
+  took 5 V on a terminal of its own. That terminal is gone (2026-09-24, at the
+  owner's request): an LM2596S-5.0 buck makes +5V from V24, so the cabinet
+  needs one supply. It is a plain buck, not an isolated module - the ground is
+  still one ground.
 
 What that costs, stated plainly so nobody has to rediscover it: the pulse and
 direction outputs are the ones that kept failing on the board in service, and a
@@ -49,13 +52,15 @@ ROOT_UUID = '7b2c1a40-0001-4000-8000-000000000001'
 
 SHEETS = {
     '01_power':   ('7b2c1a40-0002-4000-8000-000000000001',
-                   'Power - 5 V and 24 V in'),
+                   'Power - 24 V in, 5 V made on board'),
     '02_outputs': ('7b2c1a40-0002-4000-8000-000000000002',
                    'LPT port 1 - 6 axes, buffered 5 V out'),
     '03_inputs':  ('7b2c1a40-0002-4000-8000-000000000003',
                    'Inputs - home, E-stop, THC, handwheel'),
     '04_relays':  ('7b2c1a40-0002-4000-8000-000000000004',
                    'RS232, MCU and six relays'),
+    '05_spindle': ('7b2c1a40-0002-4000-8000-000000000005',
+                   'Spindle - isolated 0-10 V and FWD-REV for the VFD'),
 }
 
 # 5.08 mm, measured off the drawing of the board in service: the pad ladders of
@@ -71,12 +76,28 @@ C0603 = 'Capacitor_SMD:C_0603_1608Metric'
 LED0603 = 'LED_SMD:LED_0603_1608Metric'
 SOIC8 = 'Package_SO:SOIC-8_3.9x4.9mm_P1.27mm'
 SOIC16 = 'Package_SO:SOIC-16_3.9x9.9mm_P1.27mm'
+# PC847 comes as a DIP-16 or, for surface mount, as the same package with its
+# leads bent out (Sharp's 'I' lead form): 2.54 mm pitch, 9.53 mm across the
+# pads. There is no 1.27 mm SOIC version. A0 put it on SOIC-16, which no PC847
+# fits.
+SMDIP16 = 'Package_DIP:SMDIP-16_W9.53mm'
 SOIC20 = 'Package_SO:SOIC-20W_7.5x12.8mm_P1.27mm'
 SOD123 = 'Diode_SMD:D_SOD-123'
 DSUB25 = ('Connector_Dsub:DSUB-25_Socket_Horizontal_P2.77x2.84mm'
           '_EdgePinOffset7.70mm_Housed_MountingHolesOffset9.12mm')
 
 AXES = ['X', 'Y', 'Z', 'A', 'B', 'C']
+
+# Pin numbers on the terminals along the TOP edge run right to left. They are
+# turned 180 degrees so the wire enters from the edge, which puts pin 1 at the
+# right-hand end - and A0 wired pin 1 to the first word of each legend, which
+# is printed at the left. The result read '+24 0V' over GND and +24, '+5' over
+# the handwheel's B input, and 'EMG' over X home. So a top terminal's signals
+# are listed here left to right, as printed and as on the board in service,
+# and TOP_PIN turns a position into a pin number.
+def TOP_PIN(position, ways):
+    """Pin number of the `position`-th screw from the left, 0-based."""
+    return ways - position
 
 # Straight from the table printed on the board in service, so the existing
 # Mach3 profile still applies. Pins 1, 14 and 17 are inverted by the parallel
@@ -89,6 +110,11 @@ P1_IN = [('10', 'X_HOME'), ('11', 'Y_HOME'), ('12', 'Z_HOME'),
          ('13', 'A_HOME'), ('15', 'C_HOME')]
 P2_IN = [('15', 'ESTOP'), ('10', 'THC_UP'), ('11', 'THC_DOWN'),
          ('12', 'MPG_A'), ('13', 'MPG_B')]
+# Port 2 outputs for the spindle. Pins 7, 8 and 9 are the three data lines
+# nearest the top of the lower D-sub, the end closest to the spindle block.
+# In Mach3: pin 7 is the spindle step/PWM pin, pin 8 Output #1 (M3, CW) and
+# pin 9 Output #2 (M4, CCW).
+P2_SPINDLE = [('7', 'SP_PWM_IN'), ('8', 'SP_FWD_IN'), ('9', 'SP_REV_IN')]
 
 # 24 V sensor channels, in the order they sit along the top edge.
 SENSORS = [('ESTOP', 'E-stop'), ('C_HOME', 'C home'), ('A_HOME', 'A home'),
@@ -131,7 +157,12 @@ def db25(s, ref, x, y, label):
 # ----------------------------------------------------------- 01 power --
 
 def build_power():
-    """Two supplies in, one ground. That is the whole sheet.
+    """24 V in, 5 V made from it, one ground.
+
+    A buck and not a linear regulator: at 0.4 A a 7805 would drop 19 V and
+    burn 7.6 W. The catch diode, the input ceramic and the regulator's pins
+    form the loop the switching current runs in, and build_pcb.py keeps them
+    within a few millimetres of each other.
 
     5 V and 24 V share GND because the outputs are not isolated, so there is
     nothing to keep apart. The optocouplers on the input side are still worth
@@ -140,26 +171,43 @@ def build_power():
     before.
     """
     s = sheet('01_power')
-    s.text('POWER. Two supplies from the cabinet, exactly as the board in service.', 12.7, 16.51, 2.0)
+    s.text('POWER. 24 V from the cabinet; the 5 V rail is made on the board.', 12.7, 16.51, 2.0)
     s.text('One common ground: the outputs are not isolated, so there is nothing to', 12.7, 22.86)
     s.text('keep apart. See the header of build_project.py for what that costs.', 12.7, 27.94)
 
-    s.box(12.7, 40.64, 190.5, 111.76, '5 V LOGIC SUPPLY')
-    s.text('Feeds the buffers, the optocoupler LEDs on the PC side, the MCU and', 15.24, 48.26)
-    s.text('the RS232 transceiver. F1 protects the board, not the supply.', 15.24, 53.34)
-    j5 = s.place('Connector', 'Conn_01x02_Pin', 'J3', '5V IN', 25.4, 76.2,
-                 footprint=TERM % (2, 2))
-    f5 = s.place('Device', 'Fuse', 'F1', '1A slow 1206', 55.88, 76.2,
-                 footprint='Fuse:Fuse_1206_3216Metric', rot=90)
-    d5 = s.place('Device', 'D_Schottky', 'D1', 'SS34 reverse', 88.9, 76.2,
-                 footprint='Diode_SMD:D_SMA', rot=180)
-    c5 = s.place('Device', 'C_Polarized', 'C1', '100uF 16V', 127.0, 88.9,
-                 footprint='Capacitor_SMD:CP_Elec_6.3x7.7')
-    s.link(j5, 1, f5, 1, 'VIN5')
-    s.link(f5, 2, d5, 2, 'VIN5F')
-    s.link(d5, 1, c5, 1, '+5V', via_y=76.2)
-    s.net(c5, 2, 'GND')
-    s.net(j5, 2, 'GND')
+    s.box(12.7, 40.64, 190.5, 111.76, '5 V LOGIC SUPPLY - MADE ON BOARD FROM 24 V')
+    s.text('Feeds the buffers, the optocoupler LEDs on the PC side, the MCU, the', 15.24, 48.26)
+    s.text('RS232 transceiver and the handwheel. An LM2596S-5.0 buck off V24, so the', 15.24, 53.34)
+    s.text('board takes one supply. About 0.4 W lost at 0.4 A, where a 7805 would burn 7.6 W.', 15.24, 58.42)
+    reg = s.place('Regulator_Switching', 'LM2596S-5', 'U4', 'LM2596S-5', 88.9, 81.28,
+                  footprint='Package_TO_SOT_SMD:TO-263-5_TabPin3')
+    # Input: the bulk capacitor for the switching current, and a ceramic
+    # against the pins for the edges - C2 is at the other end of the board.
+    cin = s.place('Device', 'C_Polarized', 'C4', '47uF 50V', 30.48, 88.9,
+                  footprint='Capacitor_SMD:CP_Elec_6.3x7.7')
+    cic = s.place('Device', 'C', 'C5', '1uF 50V X7R', 50.8, 88.9,
+                  footprint='Capacitor_SMD:C_1206_3216Metric')
+    dc = s.place('Device', 'D_Schottky', 'D4', 'SS34 catch', 116.84, 93.98,
+                 footprint='Diode_SMD:D_SMA', rot=90)
+    ind = s.place('Device', 'L', 'L1', '47uH 1.5A shielded', 137.16, 78.74,
+                  footprint='Inductor_SMD:L_12x12mm_H8mm', rot=90)
+    cout = s.place('Device', 'C_Polarized', 'C1', '220uF 16V low ESR', 160.02, 88.9,
+                   footprint='Capacitor_SMD:CP_Elec_6.3x7.7')
+    s.net(reg, 1, 'V24')
+    s.net(reg, 5, 'GND')            # ON/OFF low: always on
+    s.net(reg, 3, 'GND')
+    s.net(reg, 2, 'BUCK_SW')
+    s.net(reg, 4, '+5V')            # the -5 part senses its own output
+    s.net(cin, 1, 'V24')
+    s.net(cin, 2, 'GND')
+    s.net(cic, 1, 'V24')
+    s.net(cic, 2, 'GND')
+    s.net(dc, 1, 'BUCK_SW')         # cathode on the switch node
+    s.net(dc, 2, 'GND')
+    s.net(ind, 1, 'BUCK_SW')
+    s.net(ind, 2, '+5V')
+    s.net(cout, 1, '+5V')
+    s.net(cout, 2, 'GND')
 
     s.box(203.2, 40.64, 381.0, 111.76, '24 V SENSOR AND RELAY SUPPLY')
     s.text('Feeds the sensor loops and the relay coils. Nothing on this board', 205.74, 48.26)
@@ -174,12 +222,15 @@ def build_power():
                   footprint='Diode_SMD:D_SMA', rot=270)
     c24 = s.place('Device', 'C_Polarized', 'C2', '100uF 50V', 345.44, 88.9,
                   footprint='Capacitor_SMD:CP_Elec_6.3x7.7')
-    s.link(j24, 1, f24, 1, 'VIN24')
+    # Labels, not a wire: pin 2 is drawn beside pin 1, and a wire from it to
+    # the fuse would run across pin 1.
+    s.net(j24, TOP_PIN(0, 2), 'VIN24')             # +24, the left screw
+    s.net(f24, 1, 'VIN24')
     s.link(f24, 2, d24, 2, 'VIN24F')
     s.link(d24, 1, tvs, 1, 'V24', via_y=76.2)
     s.link(tvs, 1, c24, 1, 'V24')
     s.link(tvs, 2, c24, 2, 'GND')
-    s.net(j24, 2, 'GND')
+    s.net(j24, TOP_PIN(1, 2), 'GND')               # 0V, the right screw
 
     s.box(12.7, 124.46, 190.5, 177.8, 'RAIL INDICATORS')
     s.text('See at a glance which supply is missing. 10k on 24 V, not 4k7:', 15.24, 132.08)
@@ -209,9 +260,8 @@ def build_power():
     rsh.dnp = 'yes'
     s.net(rsh, 1, 'CHASSIS')
     s.net(rsh, 2, 'GND')
-    for i, (net, x) in enumerate((('VIN5', 320.04), ('+5V', 341.63),
-                                  ('VIN24', 363.22), ('V24', 384.81),
-                                  ('GND', 406.4))):
+    for i, (net, x) in enumerate((('+5V', 320.04), ('VIN24', 341.63),
+                                  ('V24', 363.22), ('GND', 384.81))):
         fl = s.place('power', 'PWR_FLAG', '#FLG%d' % (i + 1), 'PWR_FLAG',
                      x, 168.91)
         fx, fy = fl.at(1)
@@ -354,10 +404,13 @@ def build_inputs():
     s.text('4k7 in 1206: (24-1.2)^2/4700 = 0.11 W, which a 0603 cannot hold.', 116.84, 55.88)
     chans = SENSORS
     for i, (net, label) in enumerate(chans):
-        pkg, unit = divmod(i, 4)
+        # Units in reverse, so that on the board - where the optocouplers lie
+        # on their side, LEDs up - the channels run left to right in the same
+        # order as the terminal above them, EMG C A Z Y X.
+        pkg, unit = i // 4, 3 - i % 4
         y = 71.12 + i * 17.78
         u = s.place('Isolator', 'PC847', 'U%d' % (10 + pkg), 'PC847',
-                    228.6, y, footprint=SOIC16, unit=unit + 1)
+                    228.6, y, footprint=SMDIP16, unit=unit + 1)
         a, k, c, e = opto_pins(u)
 
         r = s.place('Device', 'R', 'R%d' % (10 + i), '4k7 1206', 165.1, y,
@@ -369,6 +422,14 @@ def build_inputs():
         s.net(u, k, 'GND')
         s.net(u, e, 'GND')
         s.net(u, c, net + '_PC')
+        # Across the LED, the other way round: a sensor lead that swings
+        # negative drives current through this diode and R1x, and the LED
+        # never sees more than 0.7 V reverse. The header promised these and
+        # A0 left them out.
+        dr = s.place('Device', 'D', 'D%d' % (20 + i), '1N4148 LED reverse',
+                     190.5, y + 10.16, footprint=SOD123)
+        s.net(dr, 1, net + '_LED')       # cathode to the LED's anode
+        s.net(dr, 2, 'GND')
         pu = s.place('Device', 'R', 'R%d' % (30 + i), '10k', 292.1, y,
                      footprint=R0603)
         s.net(pu, 1, net + '_PC')
@@ -381,9 +442,9 @@ def build_inputs():
     # Six channels fill one quad and half of the second. The spare half is
     # placed and no-connected rather than left off the sheet, so nobody has to
     # wonder later whether it was forgotten.
-    for unit in (3, 4):
+    for unit in (1, 2):
         sp = s.place('Isolator', 'PC847', 'U11', 'PC847', 381.0,
-                     71.12 + unit * 22.86, footprint=SOIC16, unit=unit)
+                     71.12 + unit * 22.86, footprint=SMDIP16, unit=unit)
         for n in [q['num'] for q in sp.pins]:
             s.nc(sp, n)
 
@@ -393,10 +454,11 @@ def build_inputs():
     s.text('handwheels drive their outputs open-collector.', 116.84, 241.3)
     jm = s.place('Connector', 'Conn_01x04_Pin', 'J30', 'MPG handwheel',
                  149.86, 262.89, footprint=TERM % (4, 4))
-    s.net(jm, 1, '+5V')
-    s.net(jm, 2, 'GND')
+    # Left to right: +5  0V  A  B.
+    s.net(jm, TOP_PIN(0, 4), '+5V')
+    s.net(jm, TOP_PIN(1, 4), 'GND')
     for i, ch in enumerate(('A', 'B')):
-        s.net(jm, 3 + i, 'MPG_%s_RAW' % ch)
+        s.net(jm, TOP_PIN(2 + i, 4), 'MPG_%s_RAW' % ch)
         r = s.place('Device', 'R', 'R%d' % (40 + i), '330R',
                     228.6 + i * 76.2, 262.89, footprint=R0603)
         s.net(r, 1, 'MPG_%s_RAW' % ch)
@@ -459,6 +521,9 @@ def build_inputs():
     s.net(j2, '11', 'MPG_B_THC')
     s.net(j2, '12', 'MPG_A_JOG')
     s.net(j2, '13', 'MPG_B_JOG')
+    # Port 2's spindle outputs, used on the spindle sheet.
+    for pin, net in P2_SPINDLE:
+        s.net(j2, pin, net)
     s.nc_rest(j2)
 
     s.box(12.7, 294.64, 396.24, 332.74, 'EMG & HOME  -  ONE POSITION PER SIGNAL')
@@ -468,7 +533,7 @@ def build_inputs():
     t = s.place('Connector', 'Conn_01x06_Pin', 'J20', 'EMG C A Z Y X',
                 76.2, 320.04, footprint=TERM % (6, 6))
     for i, (net, _label) in enumerate(SENSORS):
-        s.net(t, 1 + i, net + '_F')
+        s.net(t, TOP_PIN(i, 6), net + '_F')        # EMG C A Z Y X, left to right
     return s
 
 
@@ -649,8 +714,12 @@ def build_relays():
         q.used.add('1')
         s.net(rp, 1, 'REL_%s' % ch)
         s.net(rp, 2, 'GND')
-        s.net(q, 3, 'GND')
-        s.net(q, 2, 'RELC_%s' % ch)
+        # Q_NMOS_GSD: pin 2 is the SOURCE, pin 3 the DRAIN - the 2N7002's own
+        # SOT-23 order. Written the other way round (A0, first issue) the
+        # drain sat on ground and the body diode, forward biased from the coil,
+        # held every relay on with the gate low. check_design.py checks this.
+        s.net(q, 2, 'GND')
+        s.net(q, 3, 'RELC_%s' % ch)
 
         k = s.place('Relay', 'JQC-3FF-024-1Z', 'K%d' % (1 + i),
                     'JQC-3FF-024-1Z', 330.2, y,
@@ -684,6 +753,181 @@ def build_relays():
     return s
 
 
+# -------------------------------------------------------- 05 spindle --
+
+def build_spindle():
+    """Spindle speed as 0-10 V, and direction, for the VFD - isolated.
+
+    Mach3 makes spindle speed as PWM on a port pin. A VFD wants 0-10 V between
+    its analog input (AVI, VI, AI1 - the name varies) and its analog common
+    (ACM), and FWD / REV contacts to its digital common (DCM).
+
+    Everything the VFD touches is isolated from this board, even though
+    nothing else here is. The VFD is the noisiest thing in the cabinet, and on
+    many inexpensive ones the control terminals are not isolated from the
+    drive's own electronics. Tying ACM to this board's ground would tie it to
+    the PC's ground through the parallel cable; that is the one connection
+    that most often ends with a dead parallel port.
+
+    So: the three port pins go through a 74HC14 to three optocoupler LEDs.
+    FWD and REV are two phototransistors switching the VFD's own inputs to its
+    DCM, as a contact would. Speed is the third: its phototransistor chops a
+    5 V reference made on the isolated side, a two-pole RC filter averages
+    that to 0-4.9 V, and an LM358 multiplies it by two, trimmed with RV1 so
+    that 100 % PWM is exactly 10.0 V. The isolated side is powered by a 1 W
+    24 V to 12 V isolated module, so the output does not depend on the VFD's
+    own +10 V reference or on how much it can supply.
+    """
+    s = sheet('05_spindle')
+    s.text('SPINDLE. 0-10 V speed and FWD / REV for the VFD, isolated from this board.', 12.7, 16.51, 2.0)
+    s.text('Mach3: port 2 pin 7 = spindle PWM, PWMBase Freq 100 Hz. Pin 8 = Output #1 (M3, FWD),', 12.7, 24.13)
+    s.text('pin 9 = Output #2 (M4, REV). All three active high. Trim RV1 for 10.0 V at full speed.', 12.7, 29.21)
+
+    # ---- board side: pull-downs, Schmitt buffer, LED resistors ----
+    s.box(12.7, 40.64, 190.5, 185.42, 'BOARD SIDE - PORT 2 TO THE LEDS')
+    s.text('Pulled down, so with the PC off or the cable out every LED is dark:', 15.24, 48.26)
+    s.text('no speed, no direction. The 74HC14 sinks the LED current, so an LED', 15.24, 53.34)
+    s.text('lights only when its port pin is high - two inversions, none overall.', 15.24, 58.42)
+    inv = s.place_all_units('74xx', '74HC14', 'U16', '74HC14',
+                            {1: (88.9, 76.2), 2: (88.9, 101.6), 3: (88.9, 127.0),
+                             4: (88.9, 152.4), 5: (116.84, 152.4),
+                             6: (144.78, 152.4), 7: (160.02, 76.2)},
+                            footprint='Package_SO:SOIC-14_3.9x8.7mm_P1.27mm')
+    s.net(inv[7], '14', '+5V')
+    s.net(inv[7], '7', 'GND')
+    for unit, (gin, gout) in ((4, ('9', '8')), (5, ('11', '10')),
+                              (6, ('13', '12'))):
+        s.net(inv[unit], gin, 'GND')     # unused gates: input held, output open
+        s.nc(inv[unit], gout)
+    chans = (('PWM', 1, ('1', '2')), ('FWD', 2, ('3', '4')),
+             ('REV', 3, ('5', '6')))
+    for i, (name, unit, (gin, gout)) in enumerate(chans):
+        y = 76.2 + i * 25.4
+        pd = s.place('Device', 'R', 'R%d' % (90 + i), '10k pull-down', 50.8, y,
+                     footprint=R0603)
+        s.net(pd, 1, 'SP_%s_IN' % name)
+        s.net(pd, 2, 'GND')
+        s.net(inv[unit], gin, 'SP_%s_IN' % name)
+        s.net(inv[unit], gout, 'SP_%s_K' % name)
+        rl = s.place('Device', 'R', 'R%d' % (93 + i), '330R', 132.08, y + 7.62,
+                     footprint=R0603)
+        s.net(rl, 1, '+5V')
+        s.net(rl, 2, 'SP_%s_A' % name)
+    cb = s.place('Device', 'C', 'C60', '100nF', 175.26, 88.9, footprint=C0603)
+    s.net(cb, 1, '+5V')
+    s.net(cb, 2, 'GND')
+
+    # ---- the barrier ----
+    s.box(203.2, 40.64, 279.4, 185.42, 'BARRIER')
+    s.text('Nothing crosses this box but light', 205.74, 48.26)
+    s.text('and the DC-DC module.', 205.74, 53.34)
+    opto = {}
+    for i, (name, _u, _p) in enumerate(chans):
+        u = s.place('Isolator', 'PC847', 'U12', 'PC847', 241.3, 76.2 + i * 25.4,
+                    footprint=SMDIP16, unit=i + 1)
+        a, k, c, e = opto_pins(u)
+        s.net(u, a, 'SP_%s_A' % name)
+        s.net(u, k, 'SP_%s_K' % name)
+        opto[name] = (u, c, e)
+    spare = s.place('Isolator', 'PC847', 'U12', 'PC847', 241.3, 152.4,
+                    footprint=SMDIP16, unit=4)
+    for q in spare.pins:
+        s.nc(spare, q['num'])
+    iso = s.place('Converter_DCDC_Isolated', 'CRE1S2412SC', 'U13',
+                  'B2412S-1WR3', 241.3, 172.72,
+                  footprint='Converter_DCDC:Converter_DCDC_Murata_CRE1xxxxxxSC_THT')
+    s.net(iso, 2, 'V24')
+    s.net(iso, 1, 'GND')
+    s.net(iso, 4, 'SP_12V')
+    s.net(iso, 3, 'SP_ACM')
+    ci = s.place('Device', 'C', 'C61', '1uF 50V X7R', 175.26, 165.1,
+                 footprint='Capacitor_SMD:C_1206_3216Metric')
+    s.net(ci, 1, 'V24')
+    s.net(ci, 2, 'GND')
+
+    # ---- VFD side ----
+    s.box(292.1, 40.64, 571.5, 185.42, 'VFD SIDE - ISOLATED, ITS GROUND IS THE VFD ACM')
+    s.text('SP_ACM and SP_DCM are the VFD commons. Neither touches GND.', 294.64, 48.26)
+    reg = s.place('Regulator_Linear', 'L78L05_SOT89', 'U14', '78L05', 317.5, 165.1,
+                  footprint='Package_TO_SOT_SMD:SOT-89-3')
+    s.net(reg, 3, 'SP_12V')
+    s.net(reg, 2, 'SP_ACM')
+    s.net(reg, 1, 'SP_5V')
+    for ref, val, x, net, fp in (('C62', '10uF 25V X7R', 355.6, 'SP_12V',
+                                  'Capacitor_SMD:C_1206_3216Metric'),
+                                 ('C63', '1uF', 381.0, 'SP_5V', C0603)):
+        c = s.place('Device', 'C', ref, val, x, 165.1, footprint=fp)
+        s.net(c, 1, net)
+        s.net(c, 2, 'SP_ACM')
+
+    # Speed. The phototransistor is a switch from the 5 V reference to the
+    # chopper node; R96 pulls the node to ACM when it is off. R96 is small
+    # beside the filter's 100k, so the node is driven almost as stiffly low
+    # as high and the average stays linear in the duty cycle.
+    u, c, e = opto['PWM']
+    s.net(u, c, 'SP_5V')
+    s.net(u, e, 'SP_CHOP')
+    parts = (('R96', '2k2', 'SP_CHOP', 'SP_ACM', 330.2, 76.2, R0603),
+             ('R97', '100k', 'SP_CHOP', 'SP_F1', 355.6, 76.2, R0603),
+             ('C64', '470nF', 'SP_F1', 'SP_ACM', 381.0, 88.9, C0603),
+             ('R98', '100k', 'SP_F1', 'SP_F2', 406.4, 76.2, R0603),
+             ('C65', '470nF', 'SP_F2', 'SP_ACM', 431.8, 88.9, C0603))
+    for ref, val, n1, n2, x, y, fp in parts:
+        kind = 'C' if ref.startswith('C') else 'R'
+        p_ = s.place('Device', kind, ref, val, x, y, footprint=fp)
+        s.net(p_, 1, n1)
+        s.net(p_, 2, n2)
+
+    amp = s.place_all_units('Amplifier_Operational', 'LM358', 'U15', 'LM358',
+                            {1: (477.52, 81.28), 2: (477.52, 127.0),
+                             3: (447.04, 160.02)},
+                            footprint=SOIC8)
+    s.net(amp[1], '3', 'SP_F2')
+    s.net(amp[1], '2', 'SP_FB')
+    s.net(amp[1], '1', 'SP_OUT')
+    # Second half unused: a follower of ACM, so it sits still.
+    s.net(amp[2], '5', 'SP_ACM')
+    s.net(amp[2], '6', 'SP_UNUSED')
+    s.net(amp[2], '7', 'SP_UNUSED')
+    s.net(amp[3], '8', 'SP_12V')
+    s.net(amp[3], '4', 'SP_ACM')
+    # Gain 1 + (8k2 + RV1) / 10k = 1.82 ... 2.32, so full scale is 8.9 V to
+    # 11.4 V from a 4.9 V chop: 10.0 V is in the middle of RV1's travel. An
+    # LM358 on 12 V reaches 10.5 V, so 10.0 V is inside its swing.
+    for ref, val, n1, n2, x, y in (('R99', '10k', 'SP_FB', 'SP_ACM', 452.12, 104.14),
+                                   ('R100', '8k2', 'SP_OUT', 'SP_RF', 513.08, 104.14),
+                                   ('R101', '100R', 'SP_OUT', 'SP_AVI', 538.48, 76.2)):
+        p_ = s.place('Device', 'R', ref, val, x, y, footprint=R0603)
+        s.net(p_, 1, n1)
+        s.net(p_, 2, n2)
+    rv = s.place('Device', 'R_Potentiometer_Trim', 'RV1', '5k 10.0V trim',
+                 513.08, 127.0,
+                 footprint='Potentiometer_THT:Potentiometer_Bourns_3296W_Vertical')
+    s.net(rv, 1, 'SP_RF')
+    s.net(rv, 2, 'SP_FB')
+    s.net(rv, 3, 'SP_FB')
+    for ref, val, n1, x, y in (('C66', '100nF', 'SP_12V', 406.4, 165.1),
+                               ('C67', '10nF', 'SP_AVI', 548.64, 101.6)):
+        c = s.place('Device', 'C', ref, val, x, y, footprint=C0603)
+        s.net(c, 1, n1)
+        s.net(c, 2, 'SP_ACM')
+
+    # Direction: each phototransistor is a contact from the VFD input to DCM.
+    for name in ('FWD', 'REV'):
+        u, c, e = opto[name]
+        s.net(u, c, 'SP_%s' % name)
+        s.net(u, e, 'SP_DCM')
+
+    s.box(12.7, 198.12, 571.5, 243.84, 'VFD TERMINAL')
+    s.text('AVI ACM FWD REV DCM. Most VFDs ship with FWD/REV in NPN (sink) mode,', 15.24, 205.74)
+    s.text('which is what these outputs need. PC847: 35 V, 50 mA per output.', 15.24, 210.82)
+    j = s.place('Connector', 'Conn_01x05_Pin', 'J5', 'VFD', 76.2, 228.6,
+                footprint=TERM % (5, 5))
+    for pos, net in enumerate(('SP_AVI', 'SP_ACM', 'SP_FWD', 'SP_REV', 'SP_DCM')):
+        s.net(j, TOP_PIN(pos, 5), net)
+    return s
+
+
 def build_root(children):
     body = []
     for i, (key, (suid, title)) in enumerate(SHEETS.items()):
@@ -701,14 +945,14 @@ def build_root(children):
                key, fmt(x), fmt(y + 16.51), PROJECT, ROOT_UUID, i + 2))
     head = ('(kicad_sch (version 20231120) (generator "eeschema") (uuid "%s")'
             ' (paper "A4") (title_block (title "MACH3-SIMPLE: copy of the board in service")'
-            ' (rev "A0 ENGINEERING ONLY"))(lib_symbols)' % ROOT_UUID)
+            ' (rev "A1 ENGINEERING ONLY"))(lib_symbols)' % ROOT_UUID)
     notes = (
         '(text "MACH3-SIMPLE  -  6 axes, two LPT ports, buffered 5 V outputs" (at 12.7 12.7 0)'
         ' (effects (font (size 2.54 2.54)) (justify left)) (uuid "%s"))'
         '(text "A copy of the board in service, extras removed. NOT ISOLATED on the'
         ' output side." (at 12.7 20.32 0) (effects (font (size 1.524 1.524))'
         ' (justify left)) (uuid "%s"))'
-        '(text "A0: NOT BUILT, NOT TESTED." (at 12.7 27.94 0)'
+        '(text "A1: NOT BUILT, NOT TESTED. 24 V in only; isolated VFD port." (at 12.7 27.94 0)'
         ' (effects (font (size 1.524 1.524)) (justify left)) (uuid "%s"))'
         % (uid(), uid(), uid()))
     return head + notes + ''.join(body) + '(sheet_instances (path "/" (page "1")))) '
@@ -719,7 +963,8 @@ def main():
     built, clashes = {}, []
     DECOUPLE_AT = {'01_power': 900, '02_outputs': 910,
                    '03_inputs': 930, '04_relays': 950}
-    for fn in (build_power, build_outputs, build_inputs, build_relays):
+    for fn in (build_power, build_outputs, build_inputs, build_relays,
+               build_spindle):
         s = fn()
         key = s.filename[:-len('.kicad_sch')]
         s.write(HW)

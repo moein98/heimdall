@@ -32,6 +32,12 @@ REF = os.path.join('review', 'ref.json')
 # Pin types that put a level on a net by themselves.
 DRIVING = ('output', 'power_out', 'bidirectional')
 
+# Nets that leave the board as an open-collector output and are held at the
+# far end, not here. FWD and REV are phototransistors switching the VFD's own
+# inputs to its DCM; the VFD's input pull-up is what gives them a level, and
+# nothing on this side of the barrier may.
+HELD_OFF_BOARD = ('SP_FWD', 'SP_REV', 'SP_DCM')
+
 
 def nodes():
     """{net: [(ref, pin, pinfunction, pintype)]} straight from the netlist."""
@@ -135,6 +141,8 @@ def undefined(comps, net_map):
     bad = []
     for n, pins in sorted(net_map.items()):
         if n in ('GND', '+5V', 'V24', 'CHASSIS') or n.startswith('unconnected'):
+            continue
+        if n in HELD_OFF_BOARD:
             continue
         refs = {r for r, _p, _f, _k in pins}
         if not any(r[0] == 'J' for r in refs):

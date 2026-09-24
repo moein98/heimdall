@@ -13,9 +13,11 @@ ANCHORS below says which part here stands for which part there.
 
 Parts are placed in this order: ANCHORS from the drawing, then each bypass
 capacitor against its own pin (PIN_CAPS) and the crystal against the MCU
-(NEAR_MCU), then mounting holes and FIXED_PARTS,
-and finally everything else packed into the bands in GROUPS, which keep out of
-all of the above. The board is routed separately, by tools/autoroute.py.
+(NEAR_MCU), then mounting holes, FIXED_PARTS (the power corner and the
+spindle block, which have no counterpart on the drawing) and INPUT_ROW (the
+input optocouplers with a column of parts per channel), and finally
+everything else packed into the bands in GROUPS, which keep out of all of
+the above. The board is routed separately, by tools/autoroute.py.
 """
 import json
 import math
@@ -42,7 +44,7 @@ EDGE_GAP = 0.5                  # between two connectors on the same edge
 # is not here - that comes from the drawing, through ANCHORS.
 EDGES = (
     ('left',   ('J1', 'J2')),
-    ('top',    ('J20', 'J30', 'J3', 'J4')),
+    ('top',    ('J5', 'J20', 'J30', 'J4')),
     ('bottom', ('J40', 'J41', 'J42', 'J43', 'J44', 'J45')),
     ('right',  ('J10', 'J11', 'J12', 'J13', 'J14', 'J15', 'J50')),
 )
@@ -69,7 +71,9 @@ ANCHORS = {
     # and the four-way handwheel as two two-ways; one part here covers both.
     'J20': (('T15', 'T16'), 180),
     'J30': (('T17', 'T18'), 180),
-    'J3': ('T9', 180), 'J4': ('T10', 180),
+    # T9, the 5 V terminal of the board in service, has no counterpart any
+    # more: 5 V is made on this board (U4), and its place on the edge is empty.
+    'J4': ('T10', 180),
     'J40': ('T130101', 0), 'J41': ('T120101', 0), 'J42': ('T1301', 0),
     'J43': ('T1201', 0), 'J44': ('T13', 0), 'J45': ('T12', 0),
     # The relays run right to left on the drawing, and each is turned on its
@@ -95,8 +99,8 @@ ANCHORS = {
     # The programming header, on the spot the board in service keeps its own
     # 10-pin one. Turned 90 degrees: its pin rows run across the board there.
     'J60': ('P1', 90),
-    'U10': (('U29', 'U28', 'U27', 'U26'), 0),
-    'U11': (('U25', 'U22', 'U33', 'U32'), 0),
+    # U10 and U11, the input optocouplers, are placed with their channels in
+    # INPUT_ROW below rather than on the drawing's single-channel parts.
     # One relay driver per relay, in the row above the flyback diodes; theirs
     # are optocouplers, these are small MOSFETs.
     'Q1': ('U3701', 0), 'Q2': ('U3801', 0), 'Q3': ('U37', 0),
@@ -104,9 +108,10 @@ ANCHORS = {
     # Each flyback diode directly above the coil it protects.
     'D40': ('D3', 0), 'D41': ('D4', 0), 'D42': ('D5', 0),
     'D43': ('D6', 0), 'D44': ('D7', 0), 'D45': ('D8', 0),
-    # The power block, under the two supply terminals.
-    'D1': ('D1', 0), 'D2': ('D2', 0),
-    'C1': ('C1', 0), 'C2': ('C2', 0),
+    # The 24 V input block, under its terminal. D1 and C1 were the 5 V
+    # input's; that input is gone and C1 is now the buck's output capacitor,
+    # placed with the buck in FIXED_PARTS.
+    'D2': ('D2', 0), 'C2': ('C2', 0),
     # The rail indicators are NOT anchored. On the drawing they stack into the
     # same 16 mm column as the diode and the bulk capacitor of each rail, and
     # the parts here are too big for that: an electrolytic is 9.4 x 8.5 mm
@@ -123,20 +128,17 @@ EDGE_ROT = {'bottom': 0, 'right': 90, 'top': 180, 'left': 270}
 # the anchored parts on purpose - a band is where a row of resistors may go,
 # not a box nothing else may enter.
 GROUPS = (
-    ('inputs',  (32.0, 12.0, 94.0, 42.0),
-     r'^(R[13]\d|D2\d|C1\d|R4[0-3])$'),
-    # A thin strip below the rail indicators: the parts in it - two fuses,
-    # a shunt diode and the shell termination - have no counterpart on the
-    # drawing, and the space their block occupies there is already full.
-    ('power',   (96.0, 29.0, 138.0, 42.0),
-     r'^(F[12]|D3|R[12]|D1[01])$'),
+    # Starts at 46, not 32: the spindle block has the top-left corner.
     # The D-sub shell termination, between the two shells it ties together.
     # It was filed under power, which put a chassis capacitor at the far end
     # of the board from the connectors whose shells it terminates.
     ('chassis', (14.0, 63.0, 30.0, 71.0),
      r'^(C3|R3)$'),
-    ('switch',  (34.0, 44.0, 56.0, 76.0),
-     r'^(U3|R4[4-7]|R52)$'),
+    # The handwheel's series resistors and pull-ups (R40-R43) live here now,
+    # beside the switch they feed. They were in the input band, which the
+    # spindle block and the larger optocouplers have taken.
+    ('switch',  (30.0, 51.0, 56.0, 78.0),
+     r'^(U3|R4[0-7]|R52)$'),
     ('mcu',     (58.0, 44.0, 112.0, 78.0),
      r'^(R5[01]|D30)$'),
     ('buffers', (116.0, 56.0, 146.0, 96.0),
@@ -157,11 +159,94 @@ GROUPS = (
 # corner itself was free all along.
 MOUNTS = ((4.0, 4.0), (146.5, 4.0), (146.5, 133.9), (4.0, 133.9))
 
-# Nothing is placed by hand any more. Everything the drawing pins down is in
-# ANCHORS, the bypass capacitors are in PIN_CAPS, and everything else is
-# packed into a band. This stays as the escape hatch for a part that needs to
-# go somewhere none of those cover.
-FIXED_PARTS = {}
+# Parts placed by hand: the blocks A1 added, which the drawing cannot place
+# because the board in service has nothing like them.
+#
+# The power corner: everything between the 24 V terminal and the 5 V rail, in
+# the top right, where the 5 V terminal and its parts used to be. The 5 V
+# buck is the one block with no counterpart on the drawing. It was first put
+# in the middle of the board, next to what uses +5V; it is here instead, beside
+# its own input, so that its switch node - the one net on the board that swings
+# 24 V at 150 kHz - is as far as the board allows from the MCU's crystal and
+# the parallel-port lines, and the whole supply is in one place to probe.
+#
+# What matters in a buck's layout is the loop its switching current runs
+# round, V24 - C5 - U4 - D4 - GND, in pulses with fast edges: those four are
+# packed together.
+#
+#   F2  the 24 V fuse, in the gap the 5 V terminal left, beside J4
+#   D3  the TVS, below C2 on V24
+#   C4  input bulk, over U4;  C5 input ceramic, straight above the VIN pin
+#   U4  LM2596S-5.0, pins to the left: VIN, SW, GND, FB, ON/OFF from the top;
+#       the tab is ground and sinks what little heat there is into the pour
+#   D4  catch diode, cathode level with the SW pin, anode down to ground
+#   L1  47 uH, below, pad 1 (the switch node) up towards D4
+#   C1  output capacitor, beside L1's +5V pad
+#   D10/R1, D11/R2  the two rail indicators
+FIXED_PARTS = {
+    'F2': (118.0, 6.0, 0),
+    'D3': (126.0, 31.0, 0),
+    'C4': (113.0, 13.9, 0),
+    'C5': (106.6, 16.0, 90),
+    'U4': (113.5, 24.1, 0),
+    'D4': (101.5, 23.9, 270),
+    'L1': (99.0, 37.0, 270),
+    'C1': (111.5, 38.0, 0),
+    'D10': (119.0, 31.2, 0), 'R1': (119.0, 34.0, 0),
+    'D11': (133.0, 31.0, 0), 'R2': (133.0, 33.8, 0),
+
+    # The spindle block, in the top-left corner above the upper D-sub - empty
+    # on the board in service. J5 is its terminal. Everything above U12's
+    # centre line (and U13's pins 3 and 4) is the VFD side: it sits in its own
+    # SP_ACM pour, which the board's GND pour keeps out of (SP_ZONE below).
+    # U12 is turned so its phototransistors face up, into that side, and its
+    # LEDs face down, out of it.
+    'J5': (37.0, 3.8, 180),
+    'U12': (27.5, 38.5, 90),
+    'U13': (43.5, 33.5, 180),    # pins 4, 3 (VFD side) up; 2, 1 (V24, GND) down
+    'C61': (43.0, 38.5, 90),
+    'U15': (21.0, 20.0, 0),
+    'R101': (18.5, 15.9, 0),
+    'C67': (22.8, 15.9, 0),
+    'RV1': (36.0, 18.0, 0),
+    'R100': (26.0, 20.0, 90),
+    'R99': (26.0, 24.5, 90),
+    'U14': (32.0, 24.0, 0),
+    'C62': (36.8, 23.5, 90),
+    'C63': (28.0, 27.4, 0),
+    'C66': (21.5, 24.5, 0),
+    # The filter, in a row from the chopper to the op-amp.
+    'R96': (19.0, 30.0, 0), 'R97': (23.0, 30.0, 0), 'C64': (27.0, 30.0, 0),
+    'R98': (31.0, 30.0, 0), 'C65': (35.0, 30.0, 0),
+    # LED resistors, each under the anode it feeds.
+    'R93': (18.6, 47.3, 90), 'R94': (23.7, 47.3, 90), 'R95': (28.8, 47.3, 90),
+    # The buffer beside the lower D-sub, next to port 2 pins 7-9, so the
+    # unbuffered port lines are the short ones.
+    'U16': (22.0, 90.0, 0), 'C60': (22.0, 83.8, 0),
+    'R90': (18.0, 96.8, 0), 'R91': (22.0, 96.8, 0), 'R92': (26.0, 96.8, 0),
+    # The spare buffer inputs' pull-down, below RN3. The buffer band it was
+    # packed into is where the 5 V buck now sits.
+    'R5': (120.9, 88.8, 0),
+}
+
+# The VFD side of the spindle block, poured with its own common. It is a
+# higher-priority zone than the board's GND pour, which therefore stays out of
+# it. Its lower edge runs between U12's two rows of pins and between U13's
+# pins 2 and 3. Below J5 its left edge steps in to x 16.3, leaving a corridor
+# beside the upper D-sub: port 1's pins 10 to 17 are at that end, and their
+# tracks have to get past the block to reach the optocouplers and U2.
+#
+# Board-side copper is kept out of it altogether, not just the pour:
+# tools/autoroute.py routes the board with a keepout over this area and the
+# VFD side on its own afterwards (see route_vfd there), and its `barrier`
+# check fails if any board-side track or via is inside.
+SP_ZONE = ((13.5, 0.5), (45.5, 0.5), (45.5, 29.69), (38.1, 29.69),
+           (38.1, 38.5), (16.3, 38.5), (16.3, 12.0), (13.5, 12.0))
+
+# Every net on the VFD side of the barrier.
+VFD_NETS = ('SP_12V', 'SP_5V', 'SP_ACM', 'SP_AVI', 'SP_CHOP', 'SP_F1',
+            'SP_F2', 'SP_FB', 'SP_OUT', 'SP_RF', 'SP_UNUSED', 'SP_FWD',
+            'SP_REV', 'SP_DCM')
 
 
 def uid():
@@ -453,18 +538,16 @@ NUDGE = {
     # the drawing, so its top edge reaches a millimetre higher.
     'D40': (0.0, -2.5), 'D41': (0.0, -2.5), 'D42': (0.0, -2.5),
     'D43': (0.0, -2.5), 'D44': (0.0, -2.5), 'D45': (0.0, -2.5),
-    # The supply terminals here are 10.8 mm deep and reach further into the
-    # board than the ones on the drawing, which puts the first diode of each
-    # rail underneath one.
-    'D1': (0.0, 3.5),
-    # The 24 V diode went further: at 3.5 it sat on the terminal's own
-    # legend, '24V IN', and hid it. Its capacitor moves down to make room.
+    # The supply terminal here is 10.8 mm deep and reaches further into the
+    # board than the one on the drawing, and at 3.5 mm down the diode sat on
+    # the terminal's own legend, '24V IN', and hid it. Its capacitor moves
+    # down to make room.
     'D2': (0.0, 8.8),
     # Two arrays on the one network's position, one above the other.
     'RN1': (0.0, -4.0), 'RN2': (0.0, 4.0),
     # And the bulk capacitors here are 9.4 x 8.5 mm against a pair of pads
     # 4.8 mm apart on the drawing, so they need the room below the diode.
-    'C1': (0.0, 6.0), 'C2': (0.0, 7.5),
+    'C2': (0.0, 7.5),
 }
 
 
@@ -592,6 +675,65 @@ def bypass(comps, fixed):
         crot = (math.degrees(math.atan2(-uy, ux)) + irot) % 360
         out[cap] = (ix + wx, iy + wy, crot)
     return out
+
+
+# The six 24 V input channels, laid out as a row under the EMG & HOME
+# terminal. Both optocouplers lie on their side, LEDs up towards the terminal
+# and phototransistors down towards the port. Their units are numbered in
+# reverse in the schematic, so the channels come out left to right in the
+# terminal's own order, 5.08 mm apart under screws 5.0 mm apart. Each
+# channel's parts go in a column over its own pins:
+#
+#     R1x  series resistor, 1206          y 15.9, over the LED anode
+#     D2x  reverse diode across the LED   y 19.6, over the LED anode
+#     R3x  collector pull-up              y 36.6, under the collector
+#     C1x  collector filter capacitor     y 36.6, one pin-pitch to the right
+#
+# A0 had these in a packed band; with the optocouplers on their proper
+# 2.54 mm footprint and a reverse diode per channel it no longer fitted.
+INPUT_OPTOS = {'U10': (59.85, 28.0, 270), 'U11': (81.5, 28.0, 270)}
+INPUT_ROW = (('ESTOP', 'R10', 'D20', 'R30', 'C10'),
+             ('C_HOME', 'R11', 'D21', 'R31', 'C11'),
+             ('A_HOME', 'R12', 'D22', 'R32', 'C12'),
+             ('Z_HOME', 'R13', 'D23', 'R33', 'C13'),
+             ('Y_HOME', 'R14', 'D24', 'R34', 'C14'),
+             ('X_HOME', 'R15', 'D25', 'R35', 'C15'))
+
+
+def input_row(comps):
+    """{ref: (x, y, rot)} for the input optocouplers and their channels."""
+    out = dict(INPUT_OPTOS)
+    for sig, rser, drev, rpull, cfil in INPUT_ROW:
+        for u, (ux, uy, urot) in INPUT_OPTOS.items():
+            pads = {comps[u]['pads'].get(n): (px, py)
+                    for n, px, py in pad_points(comps[u]['fp'], ux, uy, urot)}
+            if sig + '_LED' in pads:
+                ax, _ = pads[sig + '_LED']
+                cx, _ = pads[sig + '_PC']
+                out[rser] = (ax, 15.9, 0)
+                out[drev] = (ax, 19.6, 0)
+                out[rpull] = (cx, 36.6, 90)
+                out[cfil] = (cx + 2.54, 36.6, 90)
+                break
+        else:
+            print('NO CHANNEL: %s on U10 or U11' % sig)
+    return out
+
+
+def pad_points(fpid, x, y, rot):
+    """[(pad number, board x, board y)] of the numbered pads, left to right."""
+    body = load_footprint(fpid)
+    a = math.radians(rot)
+    ca, sa = math.cos(a), math.sin(a)
+    out = {}
+    for m in re.finditer(r'\(pad "([^"]+)"', body):
+        blk = body[m.start():span(body, m.start())]
+        at = re.search(r'\(at\s+(-?[\d.]+)\s+(-?[\d.]+)', blk)
+        if at and m.group(1) not in out:
+            px, py = float(at.group(1)), float(at.group(2))
+            out[m.group(1)] = (x + px * ca + py * sa, y - px * sa + py * ca)
+    return sorted(((n, px, py) for n, (px, py) in out.items()),
+                  key=lambda q: q[1])
 
 
 def reference():
@@ -760,12 +902,27 @@ class Shelf:
 # something else: another designator, a neighbour's pads or outline, or a
 # terminal legend. (dx, dy) from the part's origin, in board directions.
 REF_AT = {
-    'D1': (0.0, 2.6),       # below: above is the handwheel terminal's outline
     'D2': (-4.6, 0.0),      # left: above is the '24V IN' legend
     'C2': (0.0, 4.4),       # below: above, since D2 moved down, is D2
     'C30': (0.0, -1.6),     # above: below, it lay across C31's pads
     'Y1': (-1.6, 3.2),      # below-left: its left side is C33's designator
     'U20': (-2.5, -6.1),    # left of C42's designator, not on it
+    # The input row: designators between the rows, where there is room.
+    **{r: (0.0, 1.9) for r in ('R10', 'R11', 'R12', 'R13', 'R14', 'R15')},
+    **{r: (0.0, 1.75) for r in ('D20', 'D21', 'D22', 'D23', 'D24', 'D25')},
+    **{r: (0.0, 3.2) for r in ('R30', 'R31', 'R32', 'R33', 'R34', 'R35',
+                                'C10', 'C11', 'C12', 'C13', 'C14', 'C15')},
+    # The spindle block is dense; these go where nothing else is.
+    'U10': (0.0, 0.0), 'U11': (0.0, 0.0),
+    # The power corner.
+    'U4': (8.0, 0.0), 'D4': (-2.6, 0.0), 'D3': (0.0, 2.6),
+    'D10': (-3.3, 0.0), 'R1': (2.6, 0.0), 'D11': (0.0, -1.6), 'R2': (0.0, 1.6),
+    'U12': (0.0, 0.0), 'U15': (0.0, 0.0), 'U16': (0.0, 0.0),
+    'U13': (-3.2, -3.8),    # on the module's body
+    'U14': (0.0, 3.3),
+    'R100': (1.7, 0.0),
+    'R101': (-3.0, 0.0), 'C67': (2.6, 0.0), 'C66': (-3.0, 0.0),
+    **{r: (0.0, 1.7) for r in ('R96', 'R97', 'C64', 'R98', 'C65')},
 }
 
 # What to silkscreen beside each terminal, keyed by reference so it cannot
@@ -773,7 +930,8 @@ REF_AT = {
 LABELS = {
     'J1': ('LPT PORT 1', 'STEP / DIR / HOME'),
     'J2': ('LPT PORT 2', 'E-STOP / MPG'),
-    'J3': ('5V IN', '+5  0V'), 'J4': ('24V IN', '+24  0V'),
+    'J4': ('24V IN', '+24  0V'),
+    'J5': ('VFD - ISOLATED', 'AVI  ACM  FWD  REV  DCM'),
     'J30': ('HANDWHEEL', '+5  0V  A  B'),
     'J50': ('RS232', 'RX  TX  GND'),
 }
@@ -816,6 +974,7 @@ def main():
     for r, v in FIXED_PARTS.items():
         if r in comps:
             fixed[r] = v
+    fixed.update(input_row(comps))
 
     shelves = [Shelf(n, rect) for n, rect, _ in GROUPS]
     by_name = {s.name: s for s in shelves}
@@ -889,7 +1048,7 @@ def main():
                     ' (stroke (width 0.15) (type default)) (layer "Edge.Cuts")'
                     ' (uuid "%s"))' % (fmt(x1), fmt(y1), fmt(x2), fmt(y2), uid()))
 
-    silks, unlabelled = [], []
+    silks, unlabelled, legends = [], [], []
     for side, refs in EDGES:
         for ref in refs:
             # Every connector on an edge gets its legend, not just the screw
@@ -906,7 +1065,20 @@ def main():
             bx1, by1, bx2, by2 = rot_box(footprint_box(comps[ref]['fp']), rot)
             cx, cy = x + (bx1 + bx2) / 2.0, y + (by1 + by2) / 2.0
             if side == 'top':
-                silks.append(silk(lab[1], cx, y + by2 + 1.6, 0, 0.9))
+                # One word under each screw, not one string across the
+                # block: a centred string only lines up with the screws by
+                # luck. Words go left to right onto pads sorted left to right,
+                # and each pairing is printed so it can be read against the
+                # schematic - which is how A0's reversed top legends showed.
+                words = lab[1].split()
+                pads = pad_points(comps[ref]['fp'], x, y, rot)
+                if len(words) == len(pads):
+                    for word, (num, px, _py) in zip(words, pads):
+                        silks.append(silk(word, px, y + by2 + 1.6, 0, 0.9))
+                        legends.append('%s %s=%s' % (ref, word,
+                                                     comps[ref]['pads'].get(num)))
+                else:
+                    silks.append(silk(lab[1], cx, y + by2 + 1.6, 0, 0.9))
                 silks.append(silk(lab[0], cx, y + by2 + 4.0, 0, 1.2))
             elif side == 'bottom':
                 # On F.Fab, not the silkscreen. A relay's body ends half a
@@ -924,14 +1096,20 @@ def main():
             elif side == 'right':
                 silks.append(silk(lab[1], x + bx1 - 1.6, cy, 90, 0.9))
                 silks.append(silk(lab[0], x + bx1 - 4.0, cy, 90, 1.2))
-    HEAD = {'inputs': 'INPUTS', 'power': 'POWER', 'buffers': 'AXIS BUFFERS',
+    HEAD = {'buffers': 'AXIS BUFFERS',
             'mcu': 'MCU', 'relaydrv': 'RELAY DRIVERS',
             'switch': 'MPG / THC SWITCH', 'serial': 'RS232', 'chassis': 'SHELL'}
     for name, rect, _ in GROUPS:
-        silks.append(silk(HEAD[name], rect[0] + 1.0, rect[1] - 1.2, 0, 1.3,
-                          'left bottom'))
-    silks.append(silk('MACH3-SIMPLE  NOT ISOLATED', 14.0, 7.5, 0, 1.0,
+        if HEAD[name]:
+            silks.append(silk(HEAD[name], rect[0] + 1.0, rect[1] - 1.2, 0, 1.3,
+                              'left bottom'))
+    # In the space the 5 V terminal and its parts left, now that the top-left
+    # corner holds the spindle terminal.
+    silks.append(silk('MACH3-SIMPLE A1', 96.0, 45.5, 0, 1.2, 'left bottom'))
+    silks.append(silk('NOT ISOLATED - EXCEPT THE VFD PORT', 96.0, 47.8, 0, 0.9,
                       'left bottom'))
+    silks.append(silk('5V BUCK', 92.3, 17.5, 0, 1.3, 'left bottom'))
+    silks.append(silk('POWER', 124.0, 36.0, 0, 1.3, 'left bottom'))
 
     zone = ('\t(zone\n\t\t(net %d)\n\t\t(net_name "GND")'
             '\n\t\t(layers "F.Cu" "B.Cu")\n\t\t(uuid "%s")\n\t\t(name "GND pour")'
@@ -942,6 +1120,16 @@ def main():
             ' (xy 0.5 %s)))\n\t)'
             % (nets.get('GND', 0), uid(), fmt(BOARD_W - 0.5),
                fmt(BOARD_W - 0.5), fmt(BOARD_H - 0.5), fmt(BOARD_H - 0.5)))
+
+    sp_zone = ('\t(zone\n\t\t(net %d)\n\t\t(net_name "SP_ACM")'
+               '\n\t\t(layers "F.Cu" "B.Cu")\n\t\t(uuid "%s")\n\t\t(name "VFD side")'
+               '\n\t\t(priority 1)'
+               '\n\t\t(hatch edge 0.508)\n\t\t(connect_pads (clearance 0.508))'
+               '\n\t\t(min_thickness 0.25)'
+               '\n\t\t(fill yes (thermal_gap 0.508) (thermal_bridge_width 0.508))'
+               '\n\t\t(polygon (pts %s))\n\t)'
+               % (nets.get('SP_ACM', 0), uid(),
+                  ' '.join('(xy %s %s)' % (fmt(a), fmt(b)) for a, b in SP_ZONE)))
 
     decl = ['\t(net 0 "")'] + ['\t(net %d "%s")' % (i, n)
                                for n, i in sorted(nets.items(),
@@ -955,7 +1143,8 @@ def main():
             ' (45 "Margin" user))(setup (pad_to_mask_clearance 0)'
             ' (grid_origin 0 0))')
     with open(OUT, 'w', encoding='utf-8', newline='') as f:
-        f.write(head + '\n' + '\n'.join(decl + edge + silks + placed + [zone])
+        f.write(head + '\n' + '\n'.join(decl + edge + silks + placed
+                                        + [zone] + ([sp_zone] if 'SP_ACM' in nets else []))
                 + '\n)\n')
     write_rules()
 
@@ -970,6 +1159,8 @@ def main():
         print('OVERFLOW : %-10s %d: %s' % (name, len(refs), ' '.join(refs)))
     if unlabelled:
         print('NO LABEL : %s' % ' '.join(unlabelled))
+    for line in legends:
+        print('legend   : %s' % line)
     if skipped:
         print('SKIPPED  : %s' % skipped[:8])
     print('silk     : %d labels' % len(silks))
@@ -998,9 +1189,12 @@ def write_rules():
                 '# A bare count, not (min 1): the (min ...) form is for\n'
                 '# distances. Written that way, KiCad threw the whole file away\n'
                 '# without a word, and the SMD rule above went with it.\n'
+                '# SP_ACM, the VFD side\'s common, is routed and poured the\n'
+                '# same way, so the same holds for it.\n'
                 '(rule "through-hole ground pads need one spoke"\n'
                 '\t(constraint min_resolved_spokes 1)\n'
-                '\t(condition "A.Pad_Type == \'Through-hole\' && A.NetName == \'GND\'"))\n')
+                '\t(condition "A.Pad_Type == \'Through-hole\' && '
+                '(A.NetName == \'GND\' || A.NetName == \'SP_ACM\')"))\n')
 
 
 if __name__ == '__main__':

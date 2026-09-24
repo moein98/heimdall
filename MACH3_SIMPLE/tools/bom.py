@@ -28,6 +28,8 @@ PKG = [
     (r'SOIC-16', 'SOIC-16'),
     (r'TQFP-32', 'TQFP-32'),
     (r'TO-263', 'TO-263-5 (D2PAK)'),
+    (r'SOT-89', 'SOT-89-3'),
+    (r'SMDIP-16', 'DIP-16, SMD lead form (2.54 mm)'),
     (r'SOT-23', 'SOT-23'),
     (r'D_SOD-123', 'SOD-123 SMD'),
     (r'D_SMA', 'SMA SMD'),
@@ -45,6 +47,7 @@ PKG = [
     (r'MKDS-1,5-2', 'Phoenix MKDS 1,5 5.0 mm, 2 way'),
     (r'MKDS-1,5-3', 'Phoenix MKDS 1,5 5.0 mm, 3 way'),
     (r'MKDS-1,5-4', 'Phoenix MKDS 1,5 5.0 mm, 4 way'),
+    (r'MKDS-1,5-5', 'Phoenix MKDS 1,5 5.0 mm, 5 way'),
     (r'DSUB-25', 'DB25 socket, right angle, PCB'),
     (r'DSUB-9', 'DE9 socket, right angle, PCB'),
     (r'PinHeader_2x03', '2x3 pin header, 2.54 mm'),
@@ -70,10 +73,17 @@ SECTIONS = [
 # Notes worth carrying to the counter.
 NOTES = {
     '6N137': 'high-speed opto. Do NOT substitute a PC817 - it is far too slow for step pulses',
-    'PC847': '4-channel opto, DIP-16 outline in SOIC. PC844 is the same part',
+    'PC847': '4-channel opto, the SMD lead form (Sharp PC847XI, or LTV-847S) - there is no SOIC version',
     'AM26LS31CD': 'RS-422 line driver. SN65LBC174 or DS26LS31 are drop-ins',
     'B2405S-2W': 'VERIFY THE PIN ORDER against the module in hand before power-up',
     'LM2596S-5': 'fixed 5 V version, not ADJ',
+    'B2412S-1WR3': 'Mornsun 1 W isolated 24 V to 12 V, SIP-4. Pins 1 GND, 2 Vin, 3 0V, 4 +Vo',
+    '78L05': 'SOT-89. Pin order OUT, GND, IN - not the TO-92 order',
+    'LM358': 'LM358 or LM2904, SOIC-8',
+    '47uH': 'shielded power inductor, saturation current 1.5 A or more (SRR1260-470M, or the 47 uH from an LM2596 module)',
+    '220uF 16V': 'low-ESR electrolytic - the buck output capacitor',
+    '47uF 50V': 'low-ESR electrolytic - the buck input capacitor',
+    '5k': 'multi-turn trimmer, sets 10.0 V at full speed',
     'ATmega328P-AU': 'TQFP-32. Runs on the 16 MHz crystal Y1',
     '16MHz': 'load capacitance CL 18-20 pF, to suit the 22 pF capacitors',
     'MAX3232': '3 V version works on 5 V; MAX232 does NOT - wrong capacitor values',
@@ -105,7 +115,9 @@ def clean(value, ref='', fp=''):
     v = re.sub(r'\s+(U\d+|[A-Z]\d+)$', '', v)          # "100nF U10"
     v = re.sub(r'\s+(C0G|Y5P|1206|filter|slow|bleed|flyback|reverse|'
                r'anti-parallel|LED reverse|reset discharge|catch|'
-               r'pull-down|fail-safe|trimmer FS|AREF|link.*)$', '', v)
+               r'pull-down|fail-safe|trimmer FS|AREF|link.*|'
+               r'1\.5A shielded|low ESR|10\.0V trim|MPG_SEL pull-down|'
+               r'spare pull-down)$', '', v)
     return v.strip() or value.strip()
 
 

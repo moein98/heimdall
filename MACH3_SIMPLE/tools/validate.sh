@@ -12,8 +12,9 @@
 # schematic parity on - which is the check that catches a board that is legal
 # geometry for the wrong circuit.
 #
-# There is no isolation barrier on this board and one ground, so the sister
-# project's GND_PC / GND_M bridging test does not apply here.
+# The board has one ground, so the sister project's GND_PC / GND_M bridging
+# test does not apply. Its one isolation barrier is the spindle block's VFD
+# side, and autoroute.py's barrier check below is what polices that.
 #
 # Usage:  KICAD_CLI='/d/KiCad/bin/kicad-cli.exe' sh tools/validate.sh
 set -eu
@@ -54,6 +55,12 @@ echo "== Bypass capacitors =="
 # Each one must reach its own supply pin through its own copper; the
 # schematic cannot say which pin a +5V-to-GND capacitor is for.
 "$(dirname "$KICAD_CLI")/python.exe" tools/autoroute.py bypass || true
+
+echo "== Isolation barrier =="
+# Nothing of the board may cross into the VFD side of the spindle block, and
+# nothing of the VFD side out of it. A clearance check cannot see this: a
+# board-side track 0.22 mm from the VFD's copper is legal geometry.
+"$(dirname "$KICAD_CLI")/python.exe" tools/autoroute.py barrier || echo "  BARRIER CROSSED - see above"
 
 echo "== DRC =="
 "$KICAD_CLI" pcb drc --refill-zones --schematic-parity --format json \

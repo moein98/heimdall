@@ -188,7 +188,7 @@ class Sheet:
     """One .kicad_sch file."""
 
     def __init__(self, filename, title, project, root_uuid, sheet_uuid,
-                 rev='A0 ENGINEERING ONLY', paper='A3'):
+                 rev='A1 ENGINEERING ONLY', paper='A3'):
         self.filename, self.title = filename, title
         self.project, self.root_uuid, self.uuid = project, root_uuid, sheet_uuid
         self.rev, self.paper = rev, paper

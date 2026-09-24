@@ -5,8 +5,21 @@ Run with KiCad's own Python - it needs the pcbnew module:
 
     D:/KiCad/bin/python.exe tools/autoroute.py export
     java -jar freerouting.jar --gui.enabled=false \\
-         -de review/route/MACH3SIMPLE.dsn -do review/route/MACH3SIMPLE.ses -mp 40
+         -de review/route/MACH3SIMPLE.dsn -do review/route/MACH3SIMPLE.ses -mp 100
     D:/KiCad/bin/python.exe tools/autoroute.py import
+    D:/KiCad/bin/python.exe tools/autoroute.py vfd-export
+    java -jar freerouting.jar --gui.enabled=false \\
+         -de review/route/MACH3SIMPLE_vfd.dsn -do review/route/MACH3SIMPLE_vfd.ses -mp 100
+    D:/KiCad/bin/python.exe tools/autoroute.py vfd-import
+    D:/KiCad/bin/python.exe tools/autoroute.py stitch
+    D:/KiCad/bin/python.exe tools/autoroute.py barrier
+
+Two passes, because of the spindle block's isolation barrier. The first
+routes the board with the VFD side fenced off: its pads carry no net and a
+keepout covers its area, so no board-side track or via can cross it. The
+second locks all of that and routes the VFD side alone. A single pass put a
+home-switch line and a handwheel line straight through it, 0.22 mm from the
+VFD's copper, which is an isolation barrier in name only.
 
 The routing step is left as a separate command on purpose. It is a long run of
 a downloaded program, and it is better seen being started than hidden inside
@@ -34,6 +47,39 @@ import pcbnew
 BOARD = os.path.join('hardware', 'MACH3SIMPLE.kicad_pcb')
 DSN = os.path.join('review', 'route', 'MACH3SIMPLE.dsn')
 SES = os.path.join('review', 'route', 'MACH3SIMPLE.ses')
+DSN_VFD = os.path.join('review', 'route', 'MACH3SIMPLE_vfd.dsn')
+SES_VFD = os.path.join('review', 'route', 'MACH3SIMPLE_vfd.ses')
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+
+def vfd_side():
+    """(outline, nets) of the spindle block's isolated side, from build_pcb."""
+    from build_pcb import SP_ZONE, VFD_NETS
+    return SP_ZONE, set(VFD_NETS)
+
+
+def keepout(board, pts):
+    """A rule area on both copper layers that no track or via may enter."""
+    z = pcbnew.ZONE(board)
+    z.SetIsRuleArea(True)
+    z.SetDoNotAllowTracks(True)
+    z.SetDoNotAllowVias(True)
+    z.SetDoNotAllowPads(False)
+    z.SetDoNotAllowFootprints(False)
+    z.SetDoNotAllowZoneFills(False)
+    layers = pcbnew.LSET()
+    layers.AddLayer(pcbnew.F_Cu)
+    layers.AddLayer(pcbnew.B_Cu)
+    z.SetLayerSet(layers)
+    outline = z.Outline()
+    outline.NewOutline()
+    for x, y in pts:
+        outline.Append(pcbnew.FromMM(x), pcbnew.FromMM(y))
+    # The board owns it once added. Left to Python, the zone was freed as
+    # soon as this returned, and the export crashed on what was left.
+    z.thisown = False
+    return z
 
 
 def counts(board):
@@ -63,9 +109,24 @@ def export():
     # which is never saved - and every ground connection is routed like any
     # other. The pour is filled over the result afterwards and adds area; it no
     # longer has to be what makes the connection.
-    for z in list(board.Zones()):
-        if z.GetNetname() == 'GND':
-            board.Remove(z)
+    #
+    # The same goes for the VFD side's SP_ACM pour: it is routed as a net and
+    # poured over afterwards.
+    # Held until the export is done: a zone taken off the board and then
+    # dropped by Python was freed under it, and the next call into the board
+    # crashed.
+    removed = [z for z in board.Zones() if z.GetNetname() in ('GND', 'SP_ACM')]
+    for z in removed:
+        board.Remove(z)
+    # The VFD side waits for the second pass. Its pads lose their nets here,
+    # so the router sees them as obstacles and leaves them alone, and a
+    # keepout over the area keeps every board-side track and via outside it.
+    zone, vfd_nets = vfd_side()
+    for fp in board.GetFootprints():
+        for pad in fp.Pads():
+            if pad.GetNetname() in vfd_nets:
+                pad.SetNetCode(0)
+    board.Add(keepout(board, zone))
     if not pcbnew.ExportSpecctraDSN(board, DSN):
         print('export failed')
         return 1
@@ -94,6 +155,175 @@ def import_ses():
     t, v = counts(board)
     print('imported  : %d tracks, %d vias -> %s' % (t, v, BOARD))
     return 0
+
+
+def vfd_export():
+    """Second pass: everything routed so far locked, the VFD side to route."""
+    board = pcbnew.LoadBoard(BOARD)
+    t, v = counts(board)
+    if not t:
+        print('REFUSING : %s has no tracks. Run the first pass first.' % BOARD)
+        return 1
+    # A locked track goes into the DSN as protected wiring, which the router
+    # may not move - so the board side stays exactly where the fenced-off
+    # first pass put it.
+    for tr in board.GetTracks():
+        tr.SetLocked(True)
+    # Held until the export is done: a zone taken off the board and then
+    # dropped by Python was freed under it, and the next call into the board
+    # crashed.
+    removed = [z for z in board.Zones() if z.GetNetname() in ('GND', 'SP_ACM')]
+    for z in removed:
+        board.Remove(z)
+    if not pcbnew.ExportSpecctraDSN(board, DSN_VFD):
+        print('export failed')
+        return 1
+    print('exported  : %s (%d tracks and %d vias locked)' % (DSN_VFD, t, v))
+    return 0
+
+
+def vfd_import():
+    """Bring the second pass back: its VFD-side wires, onto the first pass.
+
+    The session Freerouting writes holds only what it routed itself, and
+    importing a session replaces every track on the board - so importing it
+    as it is would throw the whole first pass away. Instead the first pass
+    is copied out, the session imported, everything in it but the VFD side
+    dropped, and the first pass put back exactly as it was. The session does
+    carry a few board-side wires: the router re-routes locked tracks whose
+    ends it reads as a hair off their pads. Those are the ones dropped.
+    """
+    if not os.path.exists(SES_VFD):
+        print('no %s - run Freerouting on %s first' % (SES_VFD, DSN_VFD))
+        return 1
+    _zone, vfd_nets = vfd_side()
+    board = pcbnew.LoadBoard(BOARD)
+    first = []
+    for tr in board.GetTracks():
+        if tr.GetNetname() in vfd_nets:
+            continue                        # from an earlier second pass
+        # Plain numbers, not the points themselves: those belong to the
+        # tracks, and the import below deletes the tracks.
+        if tr.GetClass() == 'PCB_VIA':
+            p = tr.GetPosition()
+            first.append(('via', tr.GetNetname(), (int(p.x), int(p.y)),
+                          int(tr.GetWidth(pcbnew.F_Cu)), int(tr.GetDrillValue())))
+        else:
+            a, b = tr.GetStart(), tr.GetEnd()
+            first.append(('track', tr.GetNetname(), (int(a.x), int(a.y)),
+                          (int(b.x), int(b.y)), int(tr.GetWidth()),
+                          int(tr.GetLayer())))
+    if not pcbnew.ImportSpecctraSES(board, SES_VFD):
+        print('import failed')
+        return 1
+    # Held, like the zones in export(): an item taken off the board and let
+    # go by Python leaves the board unusable.
+    dropped = [tr for tr in board.GetTracks() if tr.GetNetname() not in vfd_nets]
+    for tr in dropped:
+        board.Remove(tr)
+    vfd = sum(1 for _ in board.GetTracks())
+    keep = []
+    for item in first:
+        net = board.FindNet(item[1])
+        if item[0] == 'via':
+            _k, _n, pos, width, drill = item
+            v = pcbnew.PCB_VIA(board)
+            v.SetPosition(pcbnew.VECTOR2I(*pos))
+            try:
+                v.SetWidth(width)
+            except TypeError:
+                v.SetWidth(pcbnew.F_Cu, width)
+            v.SetDrill(drill)
+            v.SetViaType(pcbnew.VIATYPE_THROUGH)
+            v.SetNet(net)
+            new = v
+        else:
+            _k, _n, a, b, width, layer = item
+            new = pcbnew.PCB_TRACK(board)
+            new.SetStart(pcbnew.VECTOR2I(*a))
+            new.SetEnd(pcbnew.VECTOR2I(*b))
+            new.SetWidth(width)
+            new.SetLayer(layer)
+            new.SetNet(net)
+        board.Add(new)
+        new.thisown = False
+        keep.append(new)
+    pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+    board.Save(BOARD)
+    t, v = counts(board)
+    print('imported  : %d VFD-side tracks and vias, %d first-pass ones kept,'
+          ' %d board-side wires in the session dropped -> %s'
+          % (vfd, len(first), len(dropped), BOARD))
+    return 0
+
+
+def barrier(sample_mm=0.2):
+    """No board-side copper inside the VFD side, and none of it outside.
+
+    Fails if a board-side track or via has any point inside the VFD outline,
+    or a VFD-side one any point outside it, and reports how close the nearest
+    board-side copper comes to VFD-side copper on the same layer.
+    """
+    zone, vfd_nets = vfd_side()
+    board = pcbnew.LoadBoard(BOARD)
+    poly = pcbnew.SHAPE_POLY_SET()
+    poly.NewOutline()
+    for x, y in zone:
+        poly.Append(pcbnew.FromMM(x), pcbnew.FromMM(y))
+
+    def points(tr):
+        if tr.GetClass() == 'PCB_VIA':
+            return [tr.GetPosition()]
+        a, b = tr.GetStart(), tr.GetEnd()
+        n = max(1, int(pcbnew.ToMM(tr.GetLength()) / sample_mm))
+        return [pcbnew.VECTOR2I(int(a.x + (b.x - a.x) * k / n),
+                                int(a.y + (b.y - a.y) * k / n))
+                for k in range(n + 1)]
+
+    intruders, strays = {}, {}
+    for tr in board.GetTracks():
+        net = tr.GetNetname()
+        inside = [poly.Contains(p) for p in points(tr)]
+        if net in vfd_nets and not all(inside):
+            strays[net] = strays.get(net, 0) + 1
+        elif net not in vfd_nets and any(inside):
+            intruders[net] = intruders.get(net, 0) + 1
+
+    shapes = []
+    for tr in board.GetTracks():
+        layers = ((pcbnew.F_Cu, pcbnew.B_Cu) if tr.GetClass() == 'PCB_VIA'
+                  else (tr.GetLayer(),))
+        for L in layers:
+            shapes.append((tr.GetNetname(), L, tr.GetEffectiveShape(L)))
+    for fp in board.GetFootprints():
+        for pad in fp.Pads():
+            for L in (pcbnew.F_Cu, pcbnew.B_Cu):
+                if pad.IsOnLayer(L):
+                    shapes.append((pad.GetNetname(), L, pad.GetEffectiveShape(L)))
+    ours = [s for s in shapes if s[0] in vfd_nets]
+    theirs = [s for s in shapes if s[0] and s[0] not in vfd_nets]
+    near, pair = None, None
+    reach = pcbnew.FromMM(3.0)
+    for n1, L1, s1 in ours:
+        b1 = s1.BBox()
+        b1.Inflate(reach)
+        for n2, L2, s2 in theirs:
+            if L1 != L2 or n2.startswith('unconnected-') \
+                    or not b1.Intersects(s2.BBox()):
+                continue
+            d = s1.GetClearance(s2)
+            if near is None or d < near:
+                near, pair = d, (n1, n2)
+    print('barrier   : %d board-side tracks inside the VFD side, %d VFD-side'
+          ' tracks outside it' % (sum(intruders.values()), sum(strays.values())))
+    for net, n in sorted(intruders.items()):
+        print('  INSIDE  : %s (%d)' % (net, n))
+    for net, n in sorted(strays.items()):
+        print('  OUTSIDE : %s (%d)' % (net, n))
+    if pair:
+        print('            closest board copper to VFD copper: %.2f mm (%s / %s)'
+              % (pcbnew.ToMM(near), pair[0], pair[1]))
+    return 1 if intruders or strays else 0
 
 
 def _inside(poly, x, y, r, island=-1):
@@ -331,5 +561,11 @@ if __name__ == '__main__':
         sys.exit(import_ses())
     if what == 'stitch':
         sys.exit(stitch())
+    if what == 'vfd-export':
+        sys.exit(vfd_export())
+    if what == 'vfd-import':
+        sys.exit(vfd_import())
+    if what == 'barrier':
+        sys.exit(barrier())
     print(__doc__)
     sys.exit(2)

@@ -1,15 +1,17 @@
-ERC report (2026-09-24T15:07:02, Encoding UTF8)
+ERC report (2026-09-24T22:49:38, Encoding UTF8)
 Report includes: Errors, Warnings, Exclusions
 
 ***** Sheet /
 
-***** Sheet /Power - 5 V and 24 V in/
+***** Sheet /Power - 24 V in, 5 V made on board/
 
 ***** Sheet /LPT port 1 - 6 axes, buffered 5 V out/
 
 ***** Sheet /Inputs - home, E-stop, THC, handwheel/
 
 ***** Sheet /RS232, MCU and six relays/
+
+***** Sheet /Spindle - isolated 0-10 V and FWD-REV for the VFD/
 
  ** ERC messages: 0  Errors 0  Warnings 0
 

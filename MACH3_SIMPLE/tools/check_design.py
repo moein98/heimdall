@@ -9,7 +9,10 @@ exists:
 * a 74HC123 with a wrong pin numbering on the sister EC9 project - invisible to
   ERC because the hand-made symbol declared pin types matching the same wrong
   assumption;
-* two AND-gate outputs tied to ground, from assuming which pins were inputs.
+* two AND-gate outputs tied to ground, from assuming which pins were inputs;
+* on this board's first issue, all six relay MOSFETs wired drain-to-ground,
+  because Q_NMOS_GSD's pin 2 is the source and it was taken for the drain. The
+  body diode then held every relay on, and ERC, DRC and parity were all clean.
 
 So these checks work from **pin function**, never pin number, and fail loudly.
 """
@@ -115,6 +118,33 @@ def check_led_polarity(vals, nets):
     for ref, val, net in bad:
         print('              %-6s %-26s cathode on %s  <-- would never light'
               % (ref, val, net))
+    return not bad
+
+
+def check_fet_orientation(vals, nets):
+    """Every N-channel MOSFET switching a load must have its SOURCE on ground.
+
+    On a low-side switch the drain goes to the load and the source to ground.
+    Swap them and the body diode - anode at the source, cathode at the drain -
+    is forward biased by the load: the load stays on whatever the gate does.
+    Checked by pin function (S/D), never by pin number, because the number is
+    exactly what went wrong.
+    """
+    bad, checked = [], 0
+    pins = {}
+    for net, nodes in nets.items():
+        for ref, pin, fn in nodes:
+            if vals.get(ref, ('', ''))[1].startswith('Q_NMOS'):
+                pins.setdefault(ref, {})[fn.split('_')[0]] = net
+    for ref, p in sorted(pins.items()):
+        checked += 1
+        if p.get('S') != 'GND' or p.get('D') == 'GND':
+            bad.append((ref, p.get('S'), p.get('D')))
+    print('  mosfets   : %d checked, %d with the source off ground'
+          % (checked, len(bad)))
+    for ref, s, d in bad:
+        print('  FAIL      : %s source on %s, drain on %s - body diode holds the'
+              ' load on' % (ref, s, d))
     return not bad
 
 
@@ -241,6 +271,7 @@ def main():
               check_opto_orientation(vals, nets),
               check_isolation(vals, nets),
               check_led_polarity(vals, nets),
+              check_fet_orientation(vals, nets),
               check_grid()])
     if not ok:
         print('  RESULT    : FAIL')

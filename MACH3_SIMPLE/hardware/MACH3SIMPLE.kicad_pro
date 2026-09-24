@@ -558,6 +558,10 @@
         "pattern": "VIN*"
       },
       {
+        "netclass": "Power",
+        "pattern": "BUCK_SW"
+      },
+      {
         "netclass": "Contact",
         "pattern": "K?_*"
       }

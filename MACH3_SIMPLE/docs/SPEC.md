@@ -1,20 +1,35 @@
-# MACH3-SIMPLE — what this board is
+# MACH3-SIMPLE — what this board is (revision A1)
 
 A reproduction of the Mach3 breakout board already in service on this machine,
 rebuilt in KiCad so it can be re-ordered and, later, extended. It is deliberately
-**not** the sister project (`MACH3_BOB_A0`): no isolation, no charge pump, no
-THC pulse generator, no 0–10 V spindle output. Those were taken out on request
-and can be added back one at a time.
+**not** the sister project (`MACH3_BOB_A0`): no isolation of the axis outputs,
+no charge pump, no THC pulse generator. Those were taken out on request and can
+be added back one at a time. A1 added back two things - an on-board 5 V supply
+and the 0-10 V spindle output, with direction - and fixed four A0 defects;
+see *What A1 changed*.
 
 ## At a glance
 
 | | |
 |---|---|
 | Board | 150.5 × 137.9 mm, 2 layers, 1.6 mm |
-| Parts | 133 |
-| Nets | 159 |
-| Ground | one, continuous. There is **no galvanic isolation** on this board |
-| Supplies | +5 V and +24 V, both from outside. Nothing is generated on board |
+| Parts | 168 |
+| Nets | 185 |
+| Ground | one, continuous. **No galvanic isolation**, except the VFD port |
+| Supplies | **24 V only**, from outside. +5V is made on the board by an LM2596S-5.0 buck (`U4`) |
+| VFD port | `J5`: isolated 0-10 V speed (`AVI`/`ACM`) and FWD/REV contacts (`FWD`/`REV`/`DCM`) |
+
+## What A1 changed
+
+| | A0 | A1 | Why |
+|---|---|---|---|
+| 5 V supply | a terminal of its own, `J3`, with a fuse and a series Schottky that left the rail at 4.6 V | gone; `U4` makes 5.0 V from V24 | one supply for the cabinet, at the owner's request |
+| Relay drivers | `Q1`-`Q6` with drain and source swapped | fixed | see *Relay drive* - every relay was stuck on |
+| Top-edge legends | reversed on `J4`, `J30` and `J20` | fixed | see *Terminal legends* |
+| Input optocouplers | PC847 on SOIC-16 | on SMD DIP-16 (2.54 mm) | PC847 is not made in a 1.27 mm package; A0's footprint fitted nothing |
+| Opto LED protection | promised, not there | `D20`-`D25` | a sensor lead that goes negative puts more than the LED's 6 V reverse rating across it |
+| Spindle | none | isolated 0-10 V and FWD/REV | see *Spindle* |
+| Input layout | passives packed into a band | a column per channel, under its own screw | the band no longer fitted; see *Inputs* |
 
 ## Signal path
 
@@ -31,10 +46,22 @@ its owner noticed.
 
 **Inputs — homes and E-stop.** Sensor returns come in through two PC847
 four-channel optocouplers (`U10`, `U11`) and go back to the PC on port 1
-pins 10, 11, 12, 13 and 15 — X, Y, Z and A home, and C home on 15. All six arrive on one 6-way terminal,
+pins 10, 11, 12, 13 and 15 — X, Y, Z and A home, and C home on 15; E-stop on
+port 2 pin 15. All six arrive on one 6-way terminal,
 one wire per channel, marked EMG C A Z Y X. There is no third screw per channel:
 a **PNP** sensor takes its +24 V and 0 V from the 24 V supply terminal, exactly
 as on the board in service.
+
+Each channel is 4k7 (1206, for the 0.11 W) into the LED, a 1N4148 back across
+the LED (`D20`-`D25`), and on the PC side a 10k pull-up to +5V and 10 nF to
+ground. The two optocouplers lie on their side under the terminal, LEDs up,
+and their units are numbered in reverse in the schematic so that the channels
+run left to right in the terminal's own order, 5.08 mm apart under screws
+5.0 mm apart. Each channel's four passives sit in a column over its own pins
+(`INPUT_ROW` in `build_pcb.py`).
+
+**Spindle.** Port 2 pins 7, 8 and 9 carry spindle PWM, M3 and M4 to the VFD
+port `J5`, through a Schmitt buffer and optocouplers; see *Spindle* below.
 
 **Handwheel.** One encoder, two jobs. `U3`, a 74HC4053 analog switch, sends MPG
 A and B either to port 2 pins 12 and 13, where Mach3 reads them as the
@@ -54,19 +81,23 @@ relay on, `'a'`…`'f'` turn it off.
 Not from a guess. The owner supplied the assembly drawing of the board in
 service, and every connector, relay and identifiable chip here is placed on the
 position of its counterpart there. `tools/check_placement.py` measures it:
-all 51 anchored parts land within 0.4 mm of it, apart from the few moved on
+all the anchored parts land within 0.4 mm of it, apart from the few moved on
 purpose, each listed with its reason in `NUDGE` in `build_pcb.py` - the 24 V
 diode, for one, sat on its terminal's legend.
 
 - **Left edge** — LPT port 1 (top), LPT port 2 (bottom), 62.8 mm apart.
-- **Top edge** — EMG & HOME (6-way), handwheel (4-way), 5 V in, 24 V in.
-  The top left is empty because the upper D-sub's shell is in the way.
+- **Top edge** — the VFD port (5-way, new in A1) in the top-left corner,
+  which is empty on the board in service; then EMG & HOME (6-way), handwheel
+  (4-way) and 24 V in, on the drawing's positions. The drawing's 5 V terminal
+  position between the last two is left empty: 5 V is made on the board.
 - **Right edge** — the six axis terminals at a 16.1 mm pitch, and RS232 below
   them, set apart.
 - **Bottom edge** — six relays at a 16.2 mm pitch, each directly above its own
   NO/COM/NC terminal, with its flyback diode and driver in the rows above.
-- **Interior** — the input channels in a row under EMG & HOME; protection and
-  bulk under the two supply terminals; the two 74HC245 beside the axis
+- **Interior** — the input channels in a row under EMG & HOME; the VFD
+  port's isolated block under its terminal; the whole power supply, buck
+  included, in the top-right corner under 24 V in; the spindle buffer `U16`
+  beside the lower D-sub; the two 74HC245 beside the axis
   terminals, each with its input pull-down arrays alongside; the MCU in the
   middle; the RS232 transceiver beside its own terminal.
 
@@ -102,17 +133,26 @@ service turns them too, and their courtyards touch there as they do here.
 ## What has been checked, and what that is worth
 
 `sh tools/validate.sh` runs: ERC, the structural checks in `check_design.py`
-(sheet coverage, optocoupler orientation, LED polarity, grid), the coverage
-checks in `check_coverage.py`, and DRC with schematic parity. ERC, the
-structural checks and parity pass with zero findings, and DRC finds nothing but
-silkscreen.
+(sheet coverage, optocoupler orientation, LED polarity, MOSFET orientation,
+grid), the coverage checks in `check_coverage.py`, the bypass-capacitor
+distances, the VFD isolation barrier, and DRC with schematic parity. ERC, the
+structural checks, the barrier and parity pass with zero findings, and DRC
+finds nothing but silkscreen.
+
+Beyond that, for A1: the firmware's own tests and its pin map against the
+netlist pass, and the shipped `build/mach3simple.elf` was run in simavr at
+16 MHz - it greets with `R:abcdef M:jog`, every command moves exactly its own
+pin, garbage is ignored, and the watchdog stays quiet. None of that says the
+analog stages are right; the buck and the spindle output are checked on the
+bench, `COMMISSIONING.md` steps 1 and 6.
 
 `check_coverage.py` exists because the missing pull-downs passed every one of
 the others. It looks for nets that reach a chip input with nothing to drive or
 hold them - which ERC cannot see, since a connector pin is passive and satisfies
-an input - and it counts the parts on the drawing against the parts here. The
-one net it still reports, `RS232_RX`, is held by the MAX3232's own internal
-pull-down. `check_placement.py` measures the placement against the drawing.
+an input - and it counts the parts on the drawing against the parts here. Of
+the nets it finds, `RS232_RX` is held by the MAX3232's own internal pull-down,
+and `SP_FWD`, `SP_REV` and `SP_DCM` by the VFD at the far end; the check knows
+both. `check_placement.py` measures the placement against the drawing.
 
 That is worth less than it sounds. A clean ERC proves nothing about a sheet
 KiCad never managed to read — on the sister project an unescaped quote made a
@@ -124,7 +164,7 @@ DRC says the geometry is legal, not that it is good.
 
 ## State of the routing
 
-**Fully routed.** 342 of 342 connections, ground included, with 0 unconnected
+**Fully routed.** Every connection, ground included, with 0 unconnected
 items, 0 clearance violations and 0 differences from the schematic. What DRC
 still reports is silkscreen warnings only: terminal bodies that overhang the
 board edge by design, and the outlines of neighbouring relays, which sit on
@@ -132,10 +172,23 @@ the drawing's 16.2 mm pitch and so share an edge.
 
 The route comes from Freerouting 2.4.1, run headless: `tools/autoroute.py`
 exports a Specctra DSN through KiCad's own `pcbnew` module, Freerouting routes
-it, and the session is imported back. 1486 track segments - 1005 on the front,
-481 on the back - and 307 vias, 129 of them ground stitching.
+it, and the session is imported back. 1770 track segments - 1295 on the front,
+475 on the back - and 318 vias, 137 of them ground.
 
-Four things were learned getting there, and each is recorded in the code:
+It takes two passes, because of the VFD port's isolation barrier. The first
+routes the board with the VFD side fenced off: its pads lose their nets on
+the exported copy, so the router sees them as obstacles, and a keepout over
+`SP_ZONE` keeps every board-side track and via outside. The second locks all
+of that - a locked track goes into the DSN as fixed wiring - and routes the
+VFD side alone. Freerouting's session then holds only what it routed itself,
+and importing a session replaces every track on the board, so `vfd-import`
+copies the first pass out, imports, keeps only the VFD side's wires, and puts
+the first pass back. Two more things learned there, recorded in the code: a
+zone or track taken off a board in KiCad's Python and let go crashes the next
+call into the board, and so does a point read off a track that has since been
+deleted.
+
+Four things were learned getting to the A0 route, and each is recorded in the code:
 
 - **Neck-downs.** The minimum track width is 0.15 mm, not 0.2. The only tracks
   below 0.2 are where the router narrows a track to 0.19 mm to reach a SOIC or
@@ -160,7 +213,7 @@ Net classes, in `hardware/MACH3SIMPLE.kicad_pro`:
 | Class | Width | Clearance | Nets |
 |---|---|---|---|
 | Default | 0.25 mm | 0.2 mm | everything else |
-| Power | 0.6 mm | 0.2 mm | +5V, V24, GND, VIN* |
+| Power | 0.6 mm | 0.2 mm | +5V, V24, GND, VIN*, BUCK_SW |
 | Contact | 0.8 mm | 0.3 mm | relay contacts, K?_* - low voltage only |
 
 To re-route after a placement change:
@@ -169,16 +222,126 @@ To re-route after a placement change:
     D:/KiCad/bin/python.exe tools/autoroute.py export
     java -jar freerouting.jar --gui.enabled=false -de review/route/MACH3SIMPLE.dsn -do review/route/MACH3SIMPLE.ses -mp 100
     D:/KiCad/bin/python.exe tools/autoroute.py import
+    D:/KiCad/bin/python.exe tools/autoroute.py vfd-export
+    java -jar freerouting.jar --gui.enabled=false -de review/route/MACH3SIMPLE_vfd.dsn -do review/route/MACH3SIMPLE_vfd.ses -mp 100
+    D:/KiCad/bin/python.exe tools/autoroute.py vfd-import
     D:/KiCad/bin/python.exe tools/autoroute.py stitch
+    D:/KiCad/bin/python.exe tools/autoroute.py barrier
 
 Java 25 and Freerouting live in `D:\software`. `tools/route.py`, the earlier
 router, is superseded and no longer used for this board.
+
+## Power
+
+One supply comes in: 24 V on `J4`, through `F2` (1 A slow), the series
+Schottky `D2` for reverse polarity, and the TVS `D3`, to V24 with `C2` as
+bulk. V24 feeds the relay coils, the sensor loops, the VFD port's isolated
+module and the 5 V buck.
+
++5V comes from `U4`, an LM2596S-5.0: `C4` (47 µF 50 V) and `C5` (1 µF) at
+its input, `D4` (SS34) as catch diode, `L1` 47 µH shielded, `C1` 220 µF
+low-ESR at the output, and the -5.0 part's own feedback on +5V. A buck, not a
+7805: the 5 V load is up to about 0.4 A with stepper drivers on the axis
+outputs and a handwheel on `J30`, and a linear regulator would drop 19 V of it
+- 7.6 W. At 150 kHz the buck loses about 0.4 W.
+
+The whole supply is in the top-right corner, beside `J4`, where A0's 5 V
+terminal and its parts used to be. It was first placed in the middle of the
+board, next to what uses +5V; the owner asked for it by its input, and that
+is the better place - the buck's switch node, the one net on the board that
+swings 24 V at 150 kHz, is then as far from the MCU's crystal and the
+parallel-port lines as the board allows. `U4`'s pins face left: `C5` sits
+straight above VIN, `D4` level with SW, `L1` below. The switch node is 17 mm
+of track with two vias; hand-routing could shorten it.
+
+## Spindle
+
+Mach3 makes spindle speed as PWM on a port pin; a VFD wants 0-10 V on its
+analog input and contacts on FWD / REV. `J5` provides both, isolated from
+this board:
+
+| `J5` | VFD terminal | |
+|---|---|---|
+| `AVI` | AVI / VI / AI1 | 0-10 V, 100 Ω out of an LM358 |
+| `ACM` | ACM / GND (analog) | the isolated side's ground |
+| `FWD` | FWD | phototransistor to `DCM` |
+| `REV` | REV | phototransistor to `DCM` |
+| `DCM` | DCM / COM (digital) | |
+
+**Why isolated, when nothing else here is.** The VFD is the noisiest thing in
+the cabinet, and on many inexpensive ones the control terminals are not
+isolated from the drive's own electronics. Tying `ACM` to this board's ground
+would tie it to the PC's ground through the parallel cable, which is the one
+connection that most often ends with a dead parallel port.
+
+**Board side.** Port 2 pins 7 (PWM), 8 (M3/FWD) and 9 (M4/REV), each pulled
+down by 10k (`R90`-`R92`) so the PC off or the cable out means no speed and no
+direction, into a 74HC14 (`U16`) beside the lower D-sub. The 74HC14 sinks
+the LED current of `U12`, a third PC847, through 330 Ω from +5V
+(`R93`-`R95`): an LED lights only when its port pin is high.
+
+**VFD side.** Powered by `U13`, a 1 W 24 V to 12 V isolated module (Mornsun
+B2412S-1WR3, SIP-4), so the output does not depend on the VFD's own +10 V or
+what it can supply. `U14`, a 78L05, makes a 5 V reference from it. The PWM
+channel's phototransistor switches that reference onto a chopper node that
+`R96` (2k2) pulls to `ACM` when it is off; two RC poles (100k / 470 nF, twice)
+average it to 0-4.9 V, and `U15`, an LM358, multiplies by 1 + (8k2 + `RV1`) /
+10k = 1.82 to 2.32. Trim `RV1` for 10.0 V at 100 % PWM; the LM358 on 12 V
+reaches about 10.5 V. `R96` is small beside the filter's 100k, so the node is
+driven nearly as stiffly low as high and the average stays linear in duty.
+
+The filter is for a PWM base frequency of about 100 Hz: ripple at the output
+is some 10 mV and the output settles in about a third of a second, which a
+VFD's own ramp hides. Mach3's PWMBase Freq should be set to 100.
+`COMMISSIONING.md` has the full Mach3 and VFD settings.
+
+FWD and REV are the other two channels' phototransistors, collector on the
+terminal and emitter on `DCM`: a contact to the VFD's digital common, which is
+what a VFD in its usual NPN (sink) input mode wants. PC847: 35 V, 50 mA.
+
+**The barrier on the board.** The VFD side - `J5`, `U12`'s phototransistor
+row, `U13`'s output pins, `U14`, `U15` and the filter - sits in the top-left
+corner above the upper D-sub, in its own `SP_ACM` pour (`SP_ZONE` in
+`build_pcb.py`). Nothing of the board may enter it, and a clearance check
+cannot see that: the first routing put a home-switch line and a handwheel line
+straight through, 0.22 mm from the VFD's copper, and DRC passed. So the board
+is routed in two passes (see *State of the routing*) and `autoroute.py
+barrier` - run by `validate.sh`, and by `fab.sh`, which refuses to write
+Gerbers without it - fails if any board-side track or via is inside the
+outline or any VFD-side one outside. The closest board copper to the VFD's is
+now 1.04 mm, and that is `U13`'s own pins 2 and 3.
+
+## Terminal legends
+
+The terminals along the top edge are turned 180 degrees so the wire enters
+from the edge, and that puts pin 1 at the **right-hand** end. A0 wired pin 1
+to the first word of each legend, printed at the left, so all three top
+legends were reversed: `24V IN` read `+24` over 0 V (the series diode would
+have saved the board, which would simply not have worked), `HANDWHEEL` read
+`+5` over the B input - wired by its legend, an open-collector encoder would
+have been driven straight into +5V - and `EMG & HOME` read `EMG` over X home.
+
+A1 assigns the signals left to right, as printed and as on the board in
+service (`TOP_PIN` in `build_project.py`), and prints one word under each
+screw rather than one string across the block. `build_pcb.py` prints the
+signal under every word (`legend : J4 +24=VIN24`) so it can be read against
+the schematic.
 
 ## Relay drive
 
 Each relay is switched by a 2N7002 MOSFET straight off an MCU pin: 1 kΩ in the
 gate to slow the edges, 10 kΩ gate to ground so every relay stays off while the
 MCU is in reset or unprogrammed, and a 1N4148 across each coil.
+
+**A0 had every one of them backwards.** KiCad's `Q_NMOS_GSD` numbers its pins
+gate, source, drain - the 2N7002's own SOT-23 order - and A0 put the relay coil
+on pin 2 and ground on pin 3, which is the source on the coil and the drain on
+ground. An N-channel MOSFET's body diode runs from source to drain, so the
+coil current flowed through it whatever the gate did: every relay on from the
+moment 24 V arrived, spindle and coolant included. ERC, DRC and parity were
+all clean. A1 swaps the two pins, and `check_design.py` now checks every
+N-channel MOSFET for its source on ground, by pin function, and fails the run
+if one is not.
 
 The board in service puts an optocoupler in each of these, and that was
 considered and not copied. An optocoupler isolates only if the side it drives
@@ -258,8 +421,9 @@ If the board has to drop onto the old standoffs, measure them first.
 ## Design rules
 
 `hardware/MACH3SIMPLE.kicad_dru` holds two rules: surface-mount pads connect
-to the pour solid, and a through-hole ground pad needs only one thermal spoke,
-since its own ground track is what connects it.
+to the pour solid, and a through-hole pad on GND or on the VFD side's
+`SP_ACM` needs only one thermal spoke, since its own track is what connects
+it.
 
 **KiCad ignores the whole file, without a word, if one rule in it will not
 parse.** The spoke rule was first written `(min 1)` - the form for distances,
@@ -273,7 +437,8 @@ so.
     KICAD_CLI='/d/KiCad/bin/kicad-cli.exe' sh tools/fab.sh
 
 It refuses to write anything if DRC finds a single error, an unrouted
-connection or a difference from the schematic. Otherwise `fab/` gets:
+connection or a difference from the schematic, or if board-side copper
+crosses into the VFD side. Otherwise `fab/` gets:
 
 - `MACH3SIMPLE-gerbers.zip` - **this is what goes to the board house.** Eight
   Gerber layers (copper, mask, paste and silkscreen front and back, outline)
@@ -283,8 +448,8 @@ connection or a difference from the schematic. Otherwise `fab/` gets:
 - `MACH3SIMPLE-BOM.md` / `.csv` - the bill of materials.
 - `MACH3SIMPLE-copper.pdf`, `-assembly.pdf` - to check against.
 
-The drill files were checked against the board: 456 plated holes, which is 307
-vias and 149 pad holes exactly, and 4 unplated - the mounting holes. The drill
+The drill files were checked against the board: 477 plated holes, which is 318
+vias and 159 pad holes exactly, and 4 unplated - the mounting holes. The drill
 maps are left out of the archive; they are Gerbers too, and a board house that
 takes every Gerber it is sent as a layer would try to make one.
 

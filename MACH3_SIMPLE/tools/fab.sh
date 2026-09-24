@@ -45,6 +45,14 @@ if bad:
 print('  clean - writing fabrication files')
 "
 
+echo "== Isolation barrier =="
+"$PY" tools/autoroute.py barrier || {
+  echo
+  echo "  REFUSING to write fabrication files: board-side copper crosses the"
+  echo "  VFD isolation barrier. Re-route with the two-pass flow in autoroute.py."
+  exit 1
+}
+
 rm -rf "$OUT"
 mkdir -p "$OUT"
 

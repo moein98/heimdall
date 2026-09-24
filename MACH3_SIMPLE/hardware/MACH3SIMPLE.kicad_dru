@@ -18,6 +18,8 @@
 # A bare count, not (min 1): the (min ...) form is for
 # distances. Written that way, KiCad threw the whole file away
 # without a word, and the SMD rule above went with it.
+# SP_ACM, the VFD side's common, is routed and poured the
+# same way, so the same holds for it.
 (rule "through-hole ground pads need one spoke"
 	(constraint min_resolved_spokes 1)
-	(condition "A.Pad_Type == 'Through-hole' && A.NetName == 'GND'"))
+	(condition "A.Pad_Type == 'Through-hole' && (A.NetName == 'GND' || A.NetName == 'SP_ACM')"))

@@ -1,7 +1,7 @@
 {
     "$schema": "https://schemas.kicad.org/erc.v1.json",
     "coordinate_units": "mm",
-    "date": "2026-09-24T15:07:04",
+    "date": "2026-09-24T22:49:46",
     "ignored_checks": [
         {
             "description": "Global label only appears once in the schematic",
@@ -33,7 +33,7 @@
             "violations": []
         },
         {
-            "path": "/Power - 5 V and 24 V in/",
+            "path": "/Power - 24 V in, 5 V made on board/",
             "uuid_path": "/7b2c1a40-0001-4000-8000-000000000001/7b2c1a40-0002-4000-8000-000000000001",
             "violations": []
         },
@@ -50,6 +50,11 @@
         {
             "path": "/RS232, MCU and six relays/",
             "uuid_path": "/7b2c1a40-0001-4000-8000-000000000001/7b2c1a40-0002-4000-8000-000000000004",
+            "violations": []
+        },
+        {
+            "path": "/Spindle - isolated 0-10 V and FWD-REV for the VFD/",
+            "uuid_path": "/7b2c1a40-0001-4000-8000-000000000001/7b2c1a40-0002-4000-8000-000000000005",
             "violations": []
         }
     ],
