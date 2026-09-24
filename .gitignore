@@ -1,0 +1,5 @@
+MACH3_SIMPLE/tools/__pycache__/
+*.kicad_prl
+MACH3_SIMPLE/review/route/
+MACH3_SIMPLE/fab/*drl_map*
+MACH3_SIMPLE/review/DRC_fab.json

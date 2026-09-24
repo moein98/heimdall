@@ -1,0 +1,57 @@
+{
+    "$schema": "https://schemas.kicad.org/erc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-09-24T15:07:04",
+    "ignored_checks": [
+        {
+            "description": "Global label only appears once in the schematic",
+            "key": "single_global_label"
+        },
+        {
+            "description": "Four connection points are joined together",
+            "key": "four_way_junction"
+        },
+        {
+            "description": "SPICE model issue",
+            "key": "simulation_model_issue"
+        },
+        {
+            "description": "Assigned footprint doesn't match footprint filters",
+            "key": "footprint_filter"
+        }
+    ],
+    "included_severities": [
+        "error",
+        "warning",
+        "exclusion"
+    ],
+    "kicad_version": "10.0.6",
+    "sheets": [
+        {
+            "path": "/",
+            "uuid_path": "/7b2c1a40-0001-4000-8000-000000000001",
+            "violations": []
+        },
+        {
+            "path": "/Power - 5 V and 24 V in/",
+            "uuid_path": "/7b2c1a40-0001-4000-8000-000000000001/7b2c1a40-0002-4000-8000-000000000001",
+            "violations": []
+        },
+        {
+            "path": "/LPT port 1 - 6 axes, buffered 5 V out/",
+            "uuid_path": "/7b2c1a40-0001-4000-8000-000000000001/7b2c1a40-0002-4000-8000-000000000002",
+            "violations": []
+        },
+        {
+            "path": "/Inputs - home, E-stop, THC, handwheel/",
+            "uuid_path": "/7b2c1a40-0001-4000-8000-000000000001/7b2c1a40-0002-4000-8000-000000000003",
+            "violations": []
+        },
+        {
+            "path": "/RS232, MCU and six relays/",
+            "uuid_path": "/7b2c1a40-0001-4000-8000-000000000001/7b2c1a40-0002-4000-8000-000000000004",
+            "violations": []
+        }
+    ],
+    "source": "MACH3SIMPLE.kicad_sch"
+}

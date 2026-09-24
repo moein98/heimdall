@@ -1,0 +1,20 @@
+ERC report (2026-09-24T15:07:02, Encoding UTF8)
+Report includes: Errors, Warnings, Exclusions
+
+***** Sheet /
+
+***** Sheet /Power - 5 V and 24 V in/
+
+***** Sheet /LPT port 1 - 6 axes, buffered 5 V out/
+
+***** Sheet /Inputs - home, E-stop, THC, handwheel/
+
+***** Sheet /RS232, MCU and six relays/
+
+ ** ERC messages: 0  Errors 0  Warnings 0
+
+ ** Ignored checks:
+    - Global label only appears once in the schematic
+    - Four connection points are joined together
+    - SPICE model issue
+    - Assigned footprint doesn't match footprint filters

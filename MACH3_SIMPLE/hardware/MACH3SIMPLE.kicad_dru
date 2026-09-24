@@ -1,0 +1,23 @@
+(version 1)
+
+# A bypass capacitor wants the lowest inductance it can get to
+# the plane, so a thermal relief on one works against the reason
+# it is there. Through-hole pads keep their reliefs so the
+# terminals stay hand-solderable.
+(rule "surface-mount pads connect solid"
+	(constraint zone_connection solid)
+	(condition "A.Pad_Type == 'SMD'"))
+
+# One spoke is enough on a through-hole ground pad, because the
+# spokes are not what connects it. Ground is routed as a net
+# (see tools/autoroute.py), so every ground pad already has its
+# own track, and the pour only adds area. KiCad wants two by
+# default, and on a D-sub - where signal tracks crowd between
+# the pins - the router often leaves room for one; that failed
+# DRC as an error on a different D-sub pin on each routing run.
+# A bare count, not (min 1): the (min ...) form is for
+# distances. Written that way, KiCad threw the whole file away
+# without a word, and the SMD rule above went with it.
+(rule "through-hole ground pads need one spoke"
+	(constraint min_resolved_spokes 1)
+	(condition "A.Pad_Type == 'Through-hole' && A.NetName == 'GND'"))

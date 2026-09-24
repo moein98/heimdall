@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "setupState": {
+    "layerPreset": "twoLayer",
+    "layers": [
+      {
+        "name": "F.Cu",
+        "visible": true,
+        "routingEnabled": true
+      },
+      {
+        "name": "B.Cu",
+        "visible": true,
+        "routingEnabled": true
+      },
+      {
+        "name": "B.Adhes",
+        "visible": false,
+        "routingEnabled": false
+      },
+      {
+        "name": "F.Adhes",
+        "visible": false,
+        "routingEnabled": false
+      },
+      {
+        "name": "B.Paste",
+        "visible": false,
+        "routingEnabled": false
+      },
+      {
+        "name": "F.Paste",
+        "visible": false,
+        "routingEnabled": false
+      },
+      {
+        "name": "B.SilkS",
+        "visible": true,
+        "routingEnabled": false
+      },
+      {
+        "name": "F.SilkS",
+        "visible": true,
+        "routingEnabled": false
+      },
+      {
+        "name": "B.Mask",
+        "visible": false,
+        "routingEnabled": false
+      },
+      {
+        "name": "F.Mask",
+        "visible": false,
+        "routingEnabled": false
+      },
+      {
+        "name": "Dwgs.User",
+        "visible": true,
+        "routingEnabled": false
+      },
+      {
+        "name": "Cmts.User",
+        "visible": true,
+        "routingEnabled": false
+      },
+      {
+        "name": "Eco1.User",
+        "visible": true,
+        "routingEnabled": false
+      },
+      {
+        "name": "Eco2.User",
+        "visible": true,
+        "routingEnabled": false
+      },
+      {
+        "name": "Edge.Cuts",
+        "visible": true,
+        "routingEnabled": false
+      },
+      {
+        "name": "Margin",
+        "visible": false,
+        "routingEnabled": false
+      },
+      {
+        "name": "B.CrtYd",
+        "visible": true,
+        "routingEnabled": false
+      },
+      {
+        "name": "F.CrtYd",
+        "visible": true,
+        "routingEnabled": false
+      },
+      {
+        "name": "B.Fab",
+        "visible": true,
+        "routingEnabled": false
+      },
+      {
+        "name": "F.Fab",
+        "visible": true,
+        "routingEnabled": false
+      }
+    ],
+    "traceWidthPresets": [
+      {
+        "label": "0.10 mm",
+        "widthMm": 0.1
+      },
+      {
+        "label": "0.127 mm",
+        "widthMm": 0.127
+      },
+      {
+        "label": "0.15 mm",
+        "widthMm": 0.15
+      },
+      {
+        "label": "0.20 mm",
+        "widthMm": 0.2
+      },
+      {
+        "label": "0.25 mm",
+        "widthMm": 0.25
+      },
+      {
+        "label": "0.30 mm",
+        "widthMm": 0.3
+      },
+      {
+        "label": "0.40 mm",
+        "widthMm": 0.4
+      },
+      {
+        "label": "0.50 mm",
+        "widthMm": 0.5
+      },
+      {
+        "label": "0.80 mm",
+        "widthMm": 0.8
+      },
+      {
+        "label": "1.00 mm",
+        "widthMm": 1.0
+      }
+    ],
+    "viaPresets": [
+      {
+        "label": "0.45 / 0.20",
+        "diameterMm": 0.45,
+        "drillMm": 0.2
+      },
+      {
+        "label": "0.60 / 0.30",
+        "diameterMm": 0.6,
+        "drillMm": 0.3
+      },
+      {
+        "label": "0.80 / 0.40",
+        "diameterMm": 0.8,
+        "drillMm": 0.4
+      },
+      {
+        "label": "1.00 / 0.50",
+        "diameterMm": 1.0,
+        "drillMm": 0.5
+      }
+    ],
+    "activeLayerName": "F.Cu",
+    "activeTraceWidthMm": 0.25,
+    "activeViaPreset": {
+      "label": "0.60 / 0.30",
+      "diameterMm": 0.6,
+      "drillMm": 0.3
+    },
+    "defaultTextFontFace": "KiCad Font",
+    "snapToGrid": true,
+    "showGrid": true,
+    "gridSizeMm": 0.5,
+    "clearanceMm": 0.2,
+    "boardEdgeClearanceMm": 0.25
+  },
+  "boardConstraints": {
+    "minTraceWidthMm": 0.2,
+    "minClearanceMm": 0.2,
+    "minViaDiameterMm": 0.5,
+    "minViaDrillMm": 0.3,
+    "minAnnularMm": 0.1,
+    "minHoleMm": 0.3,
+    "holeToHoleMm": 0.25,
+    "holeClearanceMm": 0.25,
+    "routingGroups": [],
+    "differentialPairs": []
+  },
+  "pageSetup": {
+    "paperSize": "Infinite",
+    "paperPortrait": false
+  }
+}
