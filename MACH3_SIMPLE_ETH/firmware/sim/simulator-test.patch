@@ -1,0 +1,34 @@
+diff --git a/src/grbl_interface.c b/src/grbl_interface.c
+index 738e865..6f8d2ce 100644
+--- a/src/grbl_interface.c
++++ b/src/grbl_interface.c
+@@ -206,7 +206,7 @@ static void print_steps (bool force)
+     if (current_block != printed_block) {
+         //new block.
+         if (block_number) //print values from the end of prev block
+-            fprintf(args.step_out_file, "%12.5f %d, %d, %d, %d\n", sim_time, sys.position[X_AXIS], sys.position[Y_AXIS], sys.position[Z_AXIS],ocr);
++            { fprintf(args.step_out_file, "%12.5f", sim_time); for(uint_fast8_t i = 0; i < N_AXIS; i++) fprintf(args.step_out_file, " %d", sys.position[i]); fprintf(args.step_out_file, "\n"); }
+ 
+         printed_block = current_block;
+         if (current_block == NULL)
+@@ -216,7 +216,7 @@ static void print_steps (bool force)
+     }
+     //print at correct interval while executing block
+     else if ((current_block && sim_time>=next_print_time) || force ) {
+-        fprintf(args.step_out_file, "%12.5f %d, %d, %d, %d\n", sim_time, sys.position[X_AXIS], sys.position[Y_AXIS], sys.position[Z_AXIS], ocr);
++        { fprintf(args.step_out_file, "%12.5f", sim_time); for(uint_fast8_t i = 0; i < N_AXIS; i++) fprintf(args.step_out_file, " %d", sys.position[i]); fprintf(args.step_out_file, "\n"); }
+         fflush(args.step_out_file);
+         //make sure the simulation time doesn't get ahead of next_print_time
+         while (next_print_time <= sim_time)
+diff --git a/src/main.c b/src/main.c
+index fb26728..8513846 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -441,6 +441,7 @@ int main(int argc, char *argv[])
+         server_addr.sin_addr.s_addr = INADDR_ANY;
+         server_addr.sin_port = htons(args.port);
+ 
++        { int one = 1; setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)); }
+         if (bind(socket_fd, (struct sockaddr *) &server_addr, addrlen) < 0) {
+             printf("Fatal: Unable to bind socket.\n");
+             exit(-5);

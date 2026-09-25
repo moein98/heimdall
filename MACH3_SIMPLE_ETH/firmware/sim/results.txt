@@ -1,0 +1,42 @@
+PASS build reports 8 axes  [AXS:8:XYZABCUV]
+PASS steps/mm stored for all 8 axes ($100-$107)  $100=400.00000 $101=500.00000 $102=600.00000 $103=700.00000 $104=800.00000 $105=900.00000 $106=1000.00000 $107=1100.00000
+PASS 8-axis move ends at target  MPos:10.000,20.000,-5.000,90.000,45.000,30.000,12.000,7.000
+PASS all 8 axes move together (Bresenham)  worst spread of progress between axes: 0.0250% over 361 samples
+PASS all 8 start in the same sample and finish together  at 1% of the move (5.500 s): all 8 moving; last sample (12.580 s): 99.2-99.2% done
+PASS arc G2 + A + U lands on target  moved X20.000 Y0.000 A180.000 U5.000
+PASS jog $J= on U and V  moved U2.500 V-1.500
+PASS malformed G-code is rejected  error:2
+PASS feed hold stops motion  <Hold:0 ... X stays at 1.224
+PASS cycle start resumes and finishes, every axis exact  MPos:200.000,0.000,0.000,0.000,100.000,0.000,0.000,0.000  (see hold_test.py)
+PASS program of 135 lines runs with no error  all ok; end MPos:200.000,0.000,10.000,360.000,100.000,0.000,30.000,-15.000
+PASS program ends where it should (A360 U30 V-15, back at X0Y0Z10)  MPos:200.000,0.000,10.000,360.000,100.000,0.000,30.000,-15.000
+
+12 / 12 passed
+PASS build reports 8 axes  [AXS:8:XYZABCUV]
+PASS steps/mm stored for all 8 axes ($100-$107)  $100=400.00000 $101=500.00000 $102=600.00000 $103=700.00000 $104=800.00000 $105=900.00000 $106=1000.00000 $107=1100.00000
+PASS 8-axis move ends at target  MPos:10.000,20.000,-5.000,90.000,45.000,30.000,12.000,7.000
+PASS all 8 axes move together (Bresenham)  worst spread of progress between axes: 0.0250% over 361 samples
+PASS all 8 start in the same sample and finish together  at 1% of the move (5.500 s): all 8 moving; last sample (12.580 s): 99.0-99.0% done
+PASS arc G2 + A + U lands on target  moved X20.000 Y0.000 A180.000 U5.000
+PASS jog $J= on U and V  moved U2.500 V-1.500
+PASS malformed G-code is rejected  error:2
+PASS feed hold stops motion  <Hold:0 ... X stays at 1.224
+PASS cycle start resumes and finishes, every axis exact  MPos:200.000,0.000,0.000,0.000,100.000,0.000,0.000,0.000  (see hold_test.py)
+PASS program of 135 lines runs with no error  all ok; end MPos:200.000,0.000,10.000,360.000,100.000,0.000,30.000,-15.000
+PASS program ends where it should (A360 U30 V-15, back at X0Y0Z10)  MPos:200.000,0.000,10.000,360.000,100.000,0.000,30.000,-15.000
+
+12 / 12 passed
+PASS build reports 8 axes  [AXS:8:XYZABCUV]
+PASS steps/mm stored for all 8 axes ($100-$107)  $100=400.00000 $101=500.00000 $102=600.00000 $103=700.00000 $104=800.00000 $105=900.00000 $106=1000.00000 $107=1100.00000
+PASS 8-axis move ends at target  MPos:10.000,20.000,-5.000,90.000,45.000,30.000,12.000,7.000
+PASS all 8 axes move together (Bresenham)  worst spread of progress between axes: 0.0250% over 361 samples
+PASS all 8 start in the same sample and finish together  at 1% of the move (5.600 s): all 8 moving; last sample (12.680 s): 99.0-99.1% done
+PASS arc G2 + A + U lands on target  moved X20.000 Y0.000 A180.000 U5.000
+PASS jog $J= on U and V  moved U2.500 V-1.500
+PASS malformed G-code is rejected  error:2
+PASS feed hold stops motion  <Hold:0 ... X stays at 1.224
+PASS cycle start resumes and finishes, every axis exact  MPos:200.000,0.000,0.000,0.000,100.000,0.000,0.000,0.000  (see hold_test.py)
+PASS program of 135 lines runs with no error  all ok; end MPos:200.000,0.000,10.000,360.000,100.000,0.000,30.000,-15.000
+PASS program ends where it should (A360 U30 V-15, back at X0Y0Z10)  MPos:200.000,0.000,10.000,360.000,100.000,0.000,30.000,-15.000
+
+12 / 12 passed

@@ -1,0 +1,13 @@
+trial  0  hold at X=   7.244 B=   3.620  end X=200.000 B=99.996  STEP LOST
+trial  1  hold at X=  18.336 B=   9.168  end X=200.000 B=99.996  STEP LOST
+trial  2  hold at X=  30.632 B=  15.312  end X=200.000 B=99.996  STEP LOST
+trial  3  hold at X=  60.196 B=  30.096  end X=200.000 B=99.996  STEP LOST
+trial  4  hold at X=  73.480 B=  36.740  end X=200.000 B=100.000  ok
+trial  5  hold at X=  87.972 B=  43.984  end X=200.000 B=99.996  STEP LOST
+trial  6  hold at X=  82.468 B=  41.232  end X=200.000 B=99.996  STEP LOST
+trial  7  hold at X=  90.608 B=  45.304  end X=200.000 B=100.000  ok
+trial  8  hold at X= 111.764 B=  55.876  end X=200.000 B=99.992  STEP LOST
+trial  9  hold at X= 108.364 B=  54.180  end X=200.000 B=99.996  STEP LOST
+trial 10  hold at X= 123.168 B=  61.584  end X=200.000 B=100.000  ok
+trial 11  hold at X= 142.176 B=  71.088  end X=200.000 B=100.000  ok
+8 / 12 trials lost a step
