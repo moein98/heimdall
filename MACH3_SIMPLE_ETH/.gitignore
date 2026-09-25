@@ -1,6 +1,6 @@
 firmware/grblHAL/build/
 firmware/grblHAL/work/
 firmware/grblHAL/build.log
-MACH3_SIMPLE_ETH/review/route/
-MACH3_SIMPLE_ETH/review/place.svg
-MACH3_SIMPLE_ETH/tools/__pycache__/
+review/route/
+review/place.svg
+tools/__pycache__/
