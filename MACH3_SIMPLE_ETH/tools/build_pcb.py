@@ -151,18 +151,23 @@ class Board:
             f.SetDNP(True)
         return f
 
-    def put(self, ref, x, y, rot=0):
-        f = self.fp.get(ref) or self.load(ref)
-        f.SetOrientationDegrees(rot)
-        f.SetPosition(pcbnew.VECTOR2I(mm(x), mm(y)))
-        if ref not in self.fp:
+    def put(self, ref, x, y, rot=0, back=False):
+        f = self.fp.get(ref)
+        if f is None:
+            # On the board before anything else: Flip on a footprint that
+            # belongs to no board segfaults.
+            f = self.load(ref)
             self.b.Add(f)
             self.fp[ref] = f
+        if f.IsFlipped() != back:
+            f.Flip(f.GetPosition(), pcbnew.FLIP_DIRECTION_LEFT_RIGHT)
+        f.SetOrientationDegrees(rot)
+        f.SetPosition(pcbnew.VECTOR2I(mm(x), mm(y)))
         return f
 
     def box(self, ref, grow=0.0):
         f = self.fp[ref]
-        cy = f.GetCourtyard(pcbnew.F_CrtYd)
+        cy = f.GetCourtyard(pcbnew.B_CrtYd if f.IsFlipped() else pcbnew.F_CrtYd)
         bb = cy.BBox() if cy.OutlineCount() else f.GetBoundingBox(False)
         return (bb.GetLeft() / 1e6 - grow, bb.GetTop() / 1e6 - grow,
                 bb.GetRight() / 1e6 + grow, bb.GetBottom() / 1e6 + grow)
@@ -259,6 +264,12 @@ FIXED = {
     'U101': (166.0, 24.0, 0),
     'L101': (188.0, 26.0, 0),
     'U102': (120.0, 58.0, 0),
+    # the 24 V input chain, in a line under J101: fuse, reverse diode, TVS,
+    # bulk capacitor - A1's order
+    'F101': (178.0, 15.5, 0),
+    'D102': (186.5, 15.5, 0),
+    'D103': (195.0, 15.5, 0),
+    'C104': (203.0, 25.0, 90),
     'J202': (84.0, 72.0, 0),
 }
 
@@ -282,6 +293,7 @@ def auto_place(bd, placed_boxes, order):
     rail_used = {}
 
     def target(ref):
+        """(x, y), and the IC whose supply pin it is if it is a bypass cap."""
         c = b.comps[ref]
         pts = []
         for pin, n in c['pads'].items():
@@ -293,20 +305,30 @@ def auto_place(bd, placed_boxes, order):
                     if xy:
                         pts.append(xy)
         if pts:
-            return (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts))
+            return (sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)), None
         rails = [n for n in c['pads'].values() if n in rail_pins]
         for n in rails:
             lst = rail_pins[n]
             k = rail_used.get(n, 0)
             if lst:
                 rail_used[n] = k + 1
-                return lst[k % len(lst)][1]
-        return None
+                return lst[k % len(lst)][1], lst[k % len(lst)][0]
+        return None, None
+
+    # The RP2350B and the W5500 need every side free for their pins to fan
+    # out: their bypass capacitors go on the back, under the chip, and
+    # nothing else on the top comes within 2 mm of them. The first route
+    # put the capacitors against the pins on the top and stalled at 110
+    # unrouted, most of them GPIO that could not get out.
+    fine = ('U201', 'U301')
+    ring = [b.box(r, 2.0) for r in fine]
+    back_boxes = []
 
     for ref in order:
-        t = target(ref)
+        t, ic = target(ref)
         if t is None:
             t = (W / 2, H / 2)
+        back = ic in fine and ref.startswith('C')
         vfd = vfd_side(b.comps[ref])
         done = False
         for r in [0.0] + [0.5 * k for k in range(1, 160)]:
@@ -315,15 +337,21 @@ def auto_place(bd, placed_boxes, order):
                 a = 2 * math.pi * s / steps
                 x, y = t[0] + r * math.cos(a), t[1] + r * math.sin(a)
                 for rot in (0, 90):
-                    b.put(ref, round(x * 4) / 4, round(y * 4) / 4, rot)
+                    b.put(ref, round(x * 4) / 4, round(y * 4) / 4, rot, back)
                     bx = b.box(ref, MARGIN)
                     if bx[0] < 1 or bx[1] < 1 or bx[2] > W - 1 or bx[3] > H - 1:
                         continue
                     if vfd and not in_sp(bx, 0.5):
                         continue
-                    if not vfd and touches_sp(bx, 0.8):
+                    if not vfd and touches_sp(bx, 1.6):
                         continue
-                    if any(overlaps(bx, o) for o in placed_boxes):
+                    if back:
+                        if any(overlaps(bx, o) for o in back_boxes):
+                            continue
+                        back_boxes.append(b.box(ref, 0.0))
+                        done = True
+                        break
+                    if any(overlaps(bx, o) for o in placed_boxes + ring):
                         continue
                     placed_boxes.append(b.box(ref, 0.0))
                     done = True
@@ -494,10 +522,13 @@ def main():
     refs = list(bd.fp)
     for i, r in enumerate(refs):
         for r2 in refs[i + 1:]:
+            if bd.fp[r].IsFlipped() != bd.fp[r2].IsFlipped() and not (
+                    bd.fp[r].HasThroughHolePads() or bd.fp[r2].HasThroughHolePads()):
+                continue
             if overlaps(bd.box(r), bd.box(r2)):
                 over.append((r, r2))
-    print('placed %d footprints, %d nets; courtyard overlaps: %d'
-          % (len(bd.fp), len(bd.netinfo), len(over)))
+    print('placed %d footprints (%d on the back), %d nets; courtyard overlaps: %d'
+          % (len(bd.fp), sum(f.IsFlipped() for f in bd.fp.values()), len(bd.netinfo), len(over)))
     for o in over[:40]:
         print('  overlap', o, bd.box(o[0]), bd.box(o[1]))
 
