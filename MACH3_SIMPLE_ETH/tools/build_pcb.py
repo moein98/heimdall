@@ -426,7 +426,7 @@ def rules(b):
     # does not neck a track down at a pad, so a 0.6 mm class there is a
     # clearance violation at every supply pin - 185 of them, and the first
     # route never got below 165 unrouted.
-    cls('Power', 0.6, 0.2, nets=('+5V', 'VBUS', 'V24', 'VIN24', 'VIN24F',
+    cls('Power', 0.6, 0.15, nets=('+5V', 'VBUS', 'V24', 'VIN24', 'VIN24F',
                                   'BUCK_SW', 'SP_12V', 'SP_5V'))
     cls('Logic_Power', 0.3, 0.15, (0.6, 0.3),
         nets=('+3V3', '+3V3A', '+1V1', 'VREG_LX', 'VREG_AVDD'))

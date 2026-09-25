@@ -33,7 +33,7 @@ BOARD = os.path.join('hardware', 'MACH3SIMPLEETH.kicad_pcb')
 DRC = os.path.join('review', 'DRC.json')
 FM, TM = pcbnew.FromMM, pcbnew.ToMM
 G = 0.1
-CL = 0.2
+CL = 0.15
 VIA_D, VIA_DR = 0.6, 0.3
 LAYERS = (pcbnew.F_Cu, pcbnew.In2_Cu, pcbnew.B_Cu)
 NX, NY = int(bp.W / G) + 1, int(bp.H / G) + 1
@@ -41,7 +41,9 @@ POWER = {'+5V', '+3V3', '+3V3A', 'VBUS', 'V24', '+1V1', 'SP_12V', 'SP_5V', 'GND'
 
 
 def width_for(net):
-    return 0.3 if net in POWER else 0.2
+    # Narrow enough to reach a 0.4 mm pitch QFN pin between its neighbours;
+    # these are short repairs, a few mm each.
+    return 0.2
 
 
 def item_at(board, net, x, y):
@@ -150,11 +152,15 @@ def route(board, net, a, b):
     moves = [(1, 0, 1), (-1, 0, 1), (0, 1, 1), (0, -1, 1),
              (1, 1, 1.414), (1, -1, 1.414), (-1, 1, 1.414), (-1, -1, 1.414)]
     end = None
+    drop = net == 'GND'         # a GND pin may simply drop a via into In1
     while pq:
         f, d, u = heapq.heappop(pq)
         if d > dist.get(u, 1e18):
             continue
         if u in goal:
+            end = u
+            break
+        if drop and u not in start and via_ok(u[0], u[1]):
             end = u
             break
         x, y, li = u
@@ -197,6 +203,8 @@ def route(board, net, a, b):
                 continue
         cur.append(q)
     segs.append(cur)
+    if drop and end not in goal:
+        vias.append((end[0], end[1]))
     n = 0
     for s in segs:
         for p, q in zip(s, s[1:]):
