@@ -120,7 +120,7 @@ def export2():
 def import2():
     board = pcbnew.LoadBoard(BOARD)
     before = len(board.GetTracks())
-    if not pcbnew.ImportSpecctraSES(board, os.path.join(RDIR, 'pass2.ses')):
+    if not pcbnew.ImportSpecctraSES(board, os.path.join(RDIR, os.environ.get('SES', 'pass2.ses'))):
         raise SystemExit('SES import failed')
     fill(board)
     board.Save(BOARD)
