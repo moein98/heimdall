@@ -37,6 +37,7 @@ CL = 0.15
 VIA_D, VIA_DR = 0.6, 0.3
 LAYERS = (pcbnew.F_Cu, pcbnew.In2_Cu, pcbnew.B_Cu)
 NX, NY = int(bp.W / G) + 1, int(bp.H / G) + 1
+ANY = False
 POWER = {'+5V', '+3V3', '+3V3A', 'VBUS', 'V24', '+1V1', 'SP_12V', 'SP_5V', 'GND'}
 
 
@@ -138,6 +139,29 @@ def route(board, net, a, b):
         return out
 
     start, goal = cells(a), cells(b)
+    if ANY:
+        # Every item of the net that is not already joined to `a`: flood
+        # fill over same-net items that touch on a shared copper layer.
+        items = [p for f in board.GetFootprints() for p in f.Pads() if p.GetNetCode() == code]
+        items += [t for t in board.GetTracks() if t.GetNetCode() == code]
+
+        def touch(p, q):
+            for lay in LAYERS + (pcbnew.In1_Cu,):
+                if p.IsOnLayer(lay) and q.IsOnLayer(lay):
+                    if p.GetEffectiveShape(lay).Collide(q.GetEffectiveShape(lay), 0):
+                        return True
+            return False
+        mine, todo = {id(a)}, [a]
+        while todo:
+            p = todo.pop()
+            for q in items:
+                if id(q) not in mine and touch(p, q):
+                    mine.add(id(q))
+                    todo.append(q)
+        goal = set()
+        for q in items:
+            if id(q) not in mine and near(q):
+                goal |= cells(q)
     for (gx, gy, li) in start | goal:
         blocked[li][gy * NX + gx] = 0
     gl = list(goal)[::max(1, len(goal) // 40)]
@@ -246,7 +270,12 @@ def main():
             print('  %-8s could not find both items' % net)
             failed += 1
             continue
+        global ANY
+        ANY = False
         r = route(board, net, a, b)
+        if not r:
+            ANY = True                      # any unjoined copper of the net
+            r = route(board, net, a, b)
         if r:
             print('  %-8s %s -> %s: %d segments, %d vias, %.1f mm'
                   % (net, its[0]['description'][:28], its[1]['description'][:28], *r))
