@@ -1,7 +1,7 @@
 {
     "$schema": "https://schemas.kicad.org/drc.v1.json",
     "coordinate_units": "mm",
-    "date": "2026-09-25T08:51:59",
+    "date": "2026-09-25T09:52:32",
     "ignored_checks": [
         {
             "description": "Footprint has no courtyard defined",
@@ -82,20 +82,20 @@
             "description": "Missing connection between items",
             "items": [
                 {
-                    "description": "Track [GND] on B.Cu, length 2.5367 mm",
-                    "pos": {
-                        "x": 32.9563,
-                        "y": 62.5
-                    },
-                    "uuid": "e5d613af-934d-4724-b0df-9d87a70d854b"
-                },
-                {
                     "description": "Pad 3 [GND] of U301 on F.Cu",
                     "pos": {
                         "x": 33.8375,
                         "y": 63.25
                     },
                     "uuid": "0cbef8af-ede7-4649-a1e6-201819178687"
+                },
+                {
+                    "description": "Track [GND] on B.Cu, length 0.4313 mm",
+                    "pos": {
+                        "x": 32.525,
+                        "y": 62.5
+                    },
+                    "uuid": "5343f0f4-024b-4b6b-b5c5-c9689b6c91f5"
                 }
             ],
             "severity": "error",
@@ -174,20 +174,20 @@
             "description": "Missing connection between items",
             "items": [
                 {
+                    "description": "Zone 'GND' [GND] on F.Cu, priority 0",
+                    "pos": {
+                        "x": 0.3,
+                        "y": 0.3
+                    },
+                    "uuid": "7a4f1d15-e7ef-44a9-8472-273b888b284f"
+                },
+                {
                     "description": "Pad 15 [GND] of U503 on F.Cu",
                     "pos": {
                         "x": 107.65,
                         "y": 21.235
                     },
                     "uuid": "de85d057-ee19-4be6-8bcd-3e3b5c433e07"
-                },
-                {
-                    "description": "Zone 'GND' [GND] on F.Cu, priority 0",
-                    "pos": {
-                        "x": 0.3,
-                        "y": 0.3
-                    },
-                    "uuid": "7a4f1d15-e7ef-44a9-8472-273b888b284f"
                 }
             ],
             "severity": "error",
@@ -220,12 +220,12 @@
             "description": "Missing connection between items",
             "items": [
                 {
-                    "description": "Pad A4 [VBUS] of J201 on F.Cu",
+                    "description": "Pad B9 [VBUS] of J201 on F.Cu",
                     "pos": {
                         "x": 8.64,
                         "y": 78.915
                     },
-                    "uuid": "a70da094-2975-4dbc-9c25-4222a5663cac"
+                    "uuid": "9f51676f-5fa7-422f-8d2c-a1fa43a5db16"
                 },
                 {
                     "description": "Pad 5 [VBUS] of U203 on F.Cu",
@@ -387,6 +387,29 @@
             "type": "starved_thermal"
         },
         {
+            "description": "Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)",
+            "items": [
+                {
+                    "description": "Zone 'GND' [GND] on F.Cu, priority 0",
+                    "pos": {
+                        "x": 0.3,
+                        "y": 0.3
+                    },
+                    "uuid": "7a4f1d15-e7ef-44a9-8472-273b888b284f"
+                },
+                {
+                    "description": "Pad 4 [GND] of U504 on F.Cu",
+                    "pos": {
+                        "x": 136.73,
+                        "y": 30.765
+                    },
+                    "uuid": "6638b40f-d90d-4f1a-96e9-d2649bcee054"
+                }
+            ],
+            "severity": "error",
+            "type": "starved_thermal"
+        },
+        {
             "description": "Thermal relief connection to zone incomplete (layer In2.Cu; 4 spokes connected to isolated island)",
             "items": [
                 {
@@ -421,12 +444,12 @@
                     "uuid": "7a4f1d15-e7ef-44a9-8472-273b888b284f"
                 },
                 {
-                    "description": "Pad 4 [GND] of U504 on F.Cu",
+                    "description": "Pad 5 [GND] of RN403 on F.Cu",
                     "pos": {
-                        "x": 136.73,
-                        "y": 30.765
+                        "x": 65.65,
+                        "y": 110.2
                     },
-                    "uuid": "6638b40f-d90d-4f1a-96e9-d2649bcee054"
+                    "uuid": "20cc6353-328c-424f-ad6a-2267dc2afbf9"
                 }
             ],
             "severity": "error",
@@ -450,29 +473,6 @@
                         "y": 84.225
                     },
                     "uuid": "65195aba-8244-41b3-8e56-4dc46197faab"
-                }
-            ],
-            "severity": "error",
-            "type": "starved_thermal"
-        },
-        {
-            "description": "Thermal relief connection to zone incomplete (layer F.Cu; zone min spoke count 2; actual 1)",
-            "items": [
-                {
-                    "description": "Zone 'GND' [GND] on F.Cu, priority 0",
-                    "pos": {
-                        "x": 0.3,
-                        "y": 0.3
-                    },
-                    "uuid": "7a4f1d15-e7ef-44a9-8472-273b888b284f"
-                },
-                {
-                    "description": "Pad 5 [GND] of RN403 on F.Cu",
-                    "pos": {
-                        "x": 65.65,
-                        "y": 110.2
-                    },
-                    "uuid": "20cc6353-328c-424f-ad6a-2267dc2afbf9"
                 }
             ],
             "severity": "error",
@@ -668,6 +668,52 @@
             ],
             "severity": "warning",
             "type": "via_dangling"
+        },
+        {
+            "description": "Drilled hole too close to other hole (board setup constraints min 0.2500 mm; actual 0.0000 mm)",
+            "items": [
+                {
+                    "description": "Via [GND] on F.Cu - B.Cu",
+                    "pos": {
+                        "x": 69.6,
+                        "y": 90.9
+                    },
+                    "uuid": "a4aeef3c-afc5-43ac-9716-ca7a26e64fbb"
+                },
+                {
+                    "description": "Via [GND] on F.Cu - B.Cu",
+                    "pos": {
+                        "x": 69.6104,
+                        "y": 90.6476
+                    },
+                    "uuid": "bb4c785d-95ee-474a-89e5-8b35fcea4d2d"
+                }
+            ],
+            "severity": "warning",
+            "type": "hole_to_hole"
+        },
+        {
+            "description": "Drilled holes co-located",
+            "items": [
+                {
+                    "description": "Via [GND] on F.Cu - B.Cu",
+                    "pos": {
+                        "x": 31.2,
+                        "y": 61.1
+                    },
+                    "uuid": "b53f49a7-212c-4029-9ee2-8736f5dc3e3e"
+                },
+                {
+                    "description": "Via [GND] on F.Cu - B.Cu",
+                    "pos": {
+                        "x": 31.2,
+                        "y": 61.1
+                    },
+                    "uuid": "d6328997-978e-44ea-94c1-e01b6af78bbd"
+                }
+            ],
+            "severity": "warning",
+            "type": "holes_co_located"
         },
         {
             "description": "Silkscreen clearance",

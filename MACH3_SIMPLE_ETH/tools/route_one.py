@@ -103,7 +103,7 @@ def route(board, net, a, b):
                     mark(li, p.GetEffectiveShape(lay), grow)
             if p.GetDrillSize().x > 0:          # a hole blocks every layer
                 for li in range(len(LAYERS)):
-                    mark(li, p.GetEffectiveHoleShape(), grow)
+                    mark(li, p.GetEffectiveHoleShape(), grow + 0.1)
     x1, y1, x2, y2 = bp.SP_ZONE
     g = 1.6
     for gy in range(max(0, int(win[1] / G)), min(NY, int(win[3] / G) + 1)):
@@ -255,9 +255,41 @@ def route(board, net, a, b):
     return n, len(vias), length
 
 
+def cleanup(board):
+    """Drop what the repairs and the autorouter left lying about: a second
+    via on the spot (or within 0.5 mm) of another of its net, and vias that
+    touch no track of their own net and no pad (dangling), except GND
+    vias, which join the pours to the plane."""
+    vias = [t for t in board.GetTracks() if isinstance(t, pcbnew.PCB_VIA)]
+    segs = [t for t in board.GetTracks() if not isinstance(t, pcbnew.PCB_VIA)]
+    gone, seen = 0, []
+    for v in vias:
+        p = v.GetPosition()
+        dup = any(q.GetNetCode() == v.GetNetCode()
+                  and (q.GetPosition() - p).EuclideanNorm() < pcbnew.FromMM(0.5) for q in seen)
+        touching = any(s.GetNetCode() == v.GetNetCode()
+                       and (s.GetStart() == p or s.GetEnd() == p) for s in segs)
+        if dup or (not touching and v.GetNetname() != 'GND'):
+            board.Remove(v)
+            gone += 1
+            continue
+        seen.append(v)
+    print('cleanup: %d vias removed' % gone)
+
+
 def main():
     d = json.load(open(DRC))
     board = pcbnew.LoadBoard(BOARD)
+    cleanup(board)
+    # The VBUS repair that ran too close to J201's hole: take it up again.
+    for v in d['violations']:
+        if v['type'] == 'hole_clearance':
+            for it in v['items']:
+                if it['description'].startswith('Track'):
+                    t = [t for t in board.GetTracks() if t.HitTest(pcbnew.VECTOR2I(
+                        FM(it['pos']['x']), FM(it['pos']['y'])), FM(0.05))]
+                    for x in t:
+                        board.Remove(x)
     done = failed = 0
     for v in d['unconnected_items']:
         its = v['items']
@@ -266,6 +298,14 @@ def main():
         net = its[0]['description'].split('[')[1].split(']')[0]
         a = item_at(board, net, its[0]['pos']['x'], its[0]['pos']['y'])
         b = item_at(board, net, its[1]['pos']['x'], its[1]['pos']['y'])
+        # Start from the chip's or connector's pin: that is the isolated end.
+        # Starting from the other item, a GND repair dropped its via next to
+        # copper that was already on the plane and left the pin as it was.
+        def is_pin(it):
+            return (isinstance(it, pcbnew.PAD)
+                    and it.GetParentFootprint().GetReference()[0] in 'UJ')
+        if b is not None and is_pin(b) and not is_pin(a):
+            a, b = b, a
         if not a or not b:
             print('  %-8s could not find both items' % net)
             failed += 1
