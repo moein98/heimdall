@@ -1,0 +1,62 @@
+diff --git a/my_machine.h b/my_machine.h
+index 14b5f8b..327932e 100644
+--- a/my_machine.h
++++ b/my_machine.h
+@@ -36,7 +36,7 @@
+ //#define BOARD_CITOH_CX6000    // C.ITOH CX-6000 HPGL plotter
+ //#define BOARD_GENERIC_4AXIS
+ //#define BOARD_GENERIC_8AXIS
+-//#define BOARD_MY_MACHINE      // Add my_machine_map.h before enabling this!
++#define BOARD_MY_MACHINE      // Add my_machine_map.h before enabling this!
+ 
+ // Configuration
+ // Uncomment to enable.
+@@ -51,30 +51,32 @@
+ // If none are specified the default PWM spindle is instantiated.
+ // Spindle definitions can be found in grbl/spindle_control.h.
+ // More here https://github.com/grblHAL/Plugins_spindle
+-//#define SPINDLE0_ENABLE         SPINDLE_HUANYANG1
++#define SPINDLE0_ENABLE         SPINDLE_PWM0
++#define SPINDLE1_ENABLE         SPINDLE_MODVFD
+ //#define SPINDLE1_ENABLE         SPINDLE_PWM0
+ //#define SPINDLE2_ENABLE         SPINDLE_NONE 
+ //#define SPINDLE2_ENABLE         SPINDLE_NONE
+ //#define SPINDLE_OFFSET          1 // Set to 1 to add offset move when switching between laser and spindle
+ // **********************
+-//#define MODBUS_ENABLE           1 // Set to 1 for auto direction, 2 for direction signal on auxiliary output pin.
++#define MODBUS_ENABLE           2 // Set to 1 for auto direction, 2 for direction signal on auxiliary output pin.
+ //#define WIFI_ENABLE             0 // Do NOT enable here, enable in CMakeLists.txt!
+ //#define WIFI_SOFTAP             1 // Use Soft AP mode for WiFi. NOTE: WIP - not yet complete!
+ //#define ETHERNET_ENABLE         0 // Do NOT enable here, enable in CMakeLists.txt!
+-//#define _WIZCHIP_            5500 // Selects WIZnet ethernet breakout connected via SPI.
++#define _WIZCHIP_            5500 // Selects WIZnet ethernet breakout connected via SPI.
+                                     // Uncomment to enable W5500 chip, default is W5100S. Requires ethernet enabled in CMakeLists.txt.
+-//#define WEBUI_ENABLE            3 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins. Requires WiFi enabled.
++#define WEBUI_ENABLE            3 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins. Requires WiFi enabled.
+ //#define WEBUI_AUTH_ENABLE       1 // Enable ESP3D-WEBUI authentication.
+ //#define WEBUI_INFLASH           0 // Uncomment to store WebUI files on SD card instead of in flash (littlefs).
+-//#define SDCARD_ENABLE           2 // Run gcode programs from SD card. Set to 2 to enable YModem upload.
+-//#define MPG_ENABLE              2 // Enable MPG interface. Requires a serial stream and means to switch between normal and MPG mode.
++#define SDCARD_ENABLE           1 // Run gcode programs from SD card. Set to 2 to enable YModem upload.
++#define MPG_ENABLE              2 // Enable MPG interface. Requires a serial stream and means to switch between normal and MPG mode.
++#define MPG_STREAM              1 // UART1 (GP42/43), handwheel MCU. Stream 0 (UART0) is the RS485 VFD.
+                                     // 1: Mode switching is by handshake pin.
+                                     // 2: Mode switching is by the CMD_MPG_MODE_TOGGLE (0x8B) command character.
+ //#define KEYPAD_ENABLE           1 // 1: uses a I2C keypad for input.
+                                     // 2: uses a serial stream for input. If MPG_ENABLE is set > 0 the serial stream is shared with the MPG.
+ //#define DISPLAY_ENABLE          9 // Set to 9 for I2C display protocol, 17 for I2C LED protocol.
+ //#define ODOMETER_ENABLE         1 // Odometer plugin.
+-//#define PLASMA_ENABLE           1 // Plasma (THC) plugin. To be completed.
++#define PLASMA_ENABLE           1 // Plasma (THC) plugin. To be completed.
+ //#define LASER_COOLANT_ENABLE    1 // Laser coolant plugin. To be completed.
+ //#define LASER_OVD_ENABLE        1 // Enable M-code for overdrive PWM output during spindle off in RPM controlled mode.
+ //#define LB_CLUSTERS_ENABLE      1 // LaserBurn cluster support.
+@@ -98,7 +100,7 @@
+ //
+ //#define MCP3221_ENABLE          1 // MCP3221 I2C 12 bit ADC input, default address is 0x9A (MCP3221_ADDRESS).
+ //#define MCP4725_ENABLE          1 // MCP4725 I2C 12 bit DAC output, default address is 0xC0 (MCP3221_ADDRESS).
+-//#define MCP23017_ENABLE         1 // MCP23017 I2C 16 channel digital I/O, default address is 0x40 (MCP23017_ADDRESS).
++#define MCP23017_ENABLE         1 // MCP23017 I2C 16 channel digital I/O, default address is 0x40 (MCP23017_ADDRESS).
+                                     // 1: Port A as outputs, port B as inputs.
+                                     // 2: Port A and B as outputs.
+                                     // 3: Port A and B as inputs.

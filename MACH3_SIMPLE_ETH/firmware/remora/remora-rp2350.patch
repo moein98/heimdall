@@ -1,0 +1,30 @@
+--- Remora-RP2040-W5500/thread/timer.cpp	2026-09-25 00:57:13.405279222 +0000
++++ port2350/thread/timer.cpp	2026-09-25 01:00:41.412901441 +0000
+@@ -52,15 +52,15 @@
+ 
+     if (this->slice == 0){
+         hw_set_bits(&timer_hw->inte, 1u << slice);//use alarm 0
+-        irq_set_exclusive_handler(TIMER_IRQ_0, PWM_Wrap_Handler0);
+-        irq_set_enabled(TIMER_IRQ_0, true);
++        irq_set_exclusive_handler(TIMER0_IRQ_0, PWM_Wrap_Handler0);
++        irq_set_enabled(TIMER0_IRQ_0, true);
+         timer_hw->alarm[slice] = timer_hw->timerawl + BASE_PERIOD;
+     }
+ 
+     else if (this->slice == 1){
+         hw_set_bits(&timer_hw->inte, 1u << slice);//use alarm 1
+-        irq_set_exclusive_handler(TIMER_IRQ_1, PWM_Wrap_Handler1);
+-        irq_set_enabled(TIMER_IRQ_1, true);
++        irq_set_exclusive_handler(TIMER0_IRQ_1, PWM_Wrap_Handler1);
++        irq_set_enabled(TIMER0_IRQ_1, true);
+         timer_hw->alarm[slice] = timer_hw->timerawl + SERVO_PERIOD;
+     } else{
+         printf("	Invalid Slice\n");
+@@ -72,5 +72,5 @@
+ void pruTimer::stopTimer()
+ {
+     printf("	timer stop\n\r");
+-    irq_set_enabled(PWM_IRQ_WRAP, false);
++    irq_set_enabled(PWM_IRQ_WRAP_0, false);
+ }
+\ No newline at end of file

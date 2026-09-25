@@ -1,0 +1,15 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1c9d0e6..8f90c07 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -214,6 +214,10 @@ if(ADD_HPGL)
+ endif()
+ 
+ target_include_directories(grblHAL PRIVATE ${CMAKE_CURRENT_LIST_DIR})
++# Axis count for every translation unit: some include grbl.h before my_machine.h.
++if(DEFINED N_AXIS)
++target_compile_definitions(grblHAL PUBLIC N_AXIS=${N_AXIS})
++endif()
+ if(PICO_PLATFORM STREQUAL "rp2040" OR PICO_BOARD STREQUAL "pico" OR PICO_BOARD STREQUAL "pico_w")
+ target_compile_definitions(grblHAL PUBLIC RP_MCU=2040)
+ target_link_libraries(grblHAL PRIVATE
