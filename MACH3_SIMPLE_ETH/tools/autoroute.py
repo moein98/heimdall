@@ -85,9 +85,13 @@ def export1():
         for p in f.Pads():
             if vfd_net(p.GetNetname()):
                 p.SetNetCode(0)
+    # The corner plus the 1.5 mm barrier, as two rectangles so that U703's
+    # input pins (V24, GND), which sit in the barrier band, stay reachable.
     x1, y1, x2, y2 = bp.SP_ZONE
     g = 1.5
-    keepout(board, (x1 - g, y1 - g, x2 + g, y2 + g))
+    keepout(board, (x1 - g, y1 - g, x2 + g, y2))
+    keepout(board, (x1 - g, y2, 25.5, y2 + g))
+    keepout(board, (32.5, y2, x2 + g, y2 + g))
     if not pcbnew.ExportSpecctraDSN(board, os.path.join(RDIR, 'pass1.dsn')):
         raise SystemExit('DSN export failed')
     print('exported pass1.dsn')

@@ -393,8 +393,15 @@ def rules(b):
         ns.SetNetclass(name, nc)
         for n in nets:
             ns.SetNetclassPatternAssignment(n, name)
-    cls('Power', 0.6, 0.2, nets=('+5V', '+3V3', '+3V3A', 'VBUS', 'V24', 'VIN24', 'VIN24F',
-                                  'BUCK_SW', '+1V1', 'VREG_LX', 'SP_12V', 'SP_5V'))
+    # Two supply classes. The 3.3 V and 1.1 V rails end on 0.2 mm QFN pads
+    # at 0.4 mm pitch (RP2350B) and 0.3 mm at 0.5 mm (W5500): Freerouting
+    # does not neck a track down at a pad, so a 0.6 mm class there is a
+    # clearance violation at every supply pin - 185 of them, and the first
+    # route never got below 165 unrouted.
+    cls('Power', 0.6, 0.2, nets=('+5V', 'VBUS', 'V24', 'VIN24', 'VIN24F',
+                                  'BUCK_SW', 'SP_12V', 'SP_5V'))
+    cls('Logic_Power', 0.3, 0.15, (0.6, 0.3),
+        nets=('+3V3', '+3V3A', '+1V1', 'VREG_LX', 'VREG_AVDD'))
     cls('Relay', 1.0, 0.3, (0.9, 0.5), nets=['K%s_%s' % (c, t) for c in RELAYS
                                              for t in ('NO', 'COM', 'NC')]
         + ['RELC_%s' % c for c in RELAYS])
