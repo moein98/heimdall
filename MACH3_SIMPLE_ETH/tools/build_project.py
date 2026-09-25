@@ -290,7 +290,7 @@ def build_power():
         s.net(led, 1, 'GND')
 
     s.box(203.2, 198.12, 381.0, 256.54, 'CHASSIS AND POWER FLAGS')
-    s.text('Magjack shield, USB shield and mounting holes are CHASSIS.', 205.74, 205.74)
+    s.text('Magjack and USB shields are CHASSIS; the mounting holes are bare.', 205.74, 205.74)
     s.text('1 nF 2 kV to GND, as W5500-EVB-Pico2; R104 only if EMC says so.', 205.74, 210.82)
     cap(s, 'C108', '1nF 2kV X7R 1206', 228.6, 228.6, 'CHASSIS', 'GND', fp=C1206)
     rsh = s.place('Device', 'R', 'R104', '0R link - DO NOT FIT', 266.7, 228.6,
@@ -306,11 +306,13 @@ def build_power():
     add_test_points(s, (('TP101', 'GND', 'GND'), ('TP102', '+5V', '5V'),
                         ('TP103', '+3V3', '3V3'), ('TP104', 'V24', '24V'),
                         ('TP105', '+1V1', '1V1')), 228.6, 292.1)
+    # Plain holes, as A1: no copper, no net. Tied to CHASSIS they needed a
+    # track round the whole board edge between the four corners, which the
+    # router could not find room for; the shield bond is at the connectors.
     for i in range(4):
-        h = s.place('Mechanical', 'MountingHole_Pad', 'H%d' % (101 + i), 'M3',
-                    30.48 + i * 38.1, 292.1,
-                    footprint='MountingHole:MountingHole_3.2mm_M3_Pad_Via')
-        s.net(h, 1, 'CHASSIS')
+        s.place('Mechanical', 'MountingHole', 'H%d' % (101 + i), 'M3',
+                30.48 + i * 38.1, 292.1,
+                footprint='MountingHole:MountingHole_3.2mm_M3')
     return s
 
 

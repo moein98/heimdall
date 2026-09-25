@@ -64,7 +64,7 @@ def strip_pours(board):
     """Take the outer-layer pours off (kept for put_back)."""
     out = []
     for z in list(board.Zones()):
-        if not z.GetIsRuleArea() and z.GetLayer() in (pcbnew.F_Cu, pcbnew.B_Cu):
+        if not z.GetIsRuleArea() and z.GetLayer() in (pcbnew.F_Cu, pcbnew.B_Cu, pcbnew.In2_Cu):
             out.append(z)
             _KEEP.append(z)
             board.Remove(z)
@@ -258,8 +258,110 @@ def silk():
     print('silk done')
 
 
+def _box(f):
+    cy = f.GetCourtyard(pcbnew.B_CrtYd if f.IsFlipped() else pcbnew.F_CrtYd)
+    bb = cy.BBox() if cy.OutlineCount() else f.GetBoundingBox(False)
+    return (bb.GetLeft() / 1e6, bb.GetTop() / 1e6, bb.GetRight() / 1e6, bb.GetBottom() / 1e6)
+
+
+def _seg_box(t):
+    bb = t.GetBoundingBox()
+    return (bb.GetLeft() / 1e6, bb.GetTop() / 1e6, bb.GetRight() / 1e6, bb.GetBottom() / 1e6)
+
+
+# Parts the first placement put far from what they serve, and where they
+# go instead: next to the pad they belong to.
+MOVE = {'D104': ('J201', 'A4'),      # VBUS Schottky, beside the USB-C
+        'C108': ('J301', 'SH'),      # chassis to GND, beside the magjack shield
+        'R104': ('J301', 'SH')}
+
+
+def fixup():
+    """Bring a routed board up to date without routing it again from scratch."""
+    comps, nets = bp.read_netlist()
+    board = pcbnew.LoadBoard(BOARD)
+    fps = {f.GetReference(): f for f in board.GetFootprints()}
+    # 1. mounting holes: bare now
+    for ref in ('H101', 'H102', 'H103', 'H104'):
+        old = fps[ref]
+        pos = old.GetPosition()
+        _KEEP.append(old)
+        board.Remove(old)
+        lib, name = comps[ref]['fp'].split(':', 1)
+        f = pcbnew.FootprintLoad('%s/%s.pretty' % (bp.FP_DIR, lib), name)
+        f.SetReference(ref)
+        f.SetValue(comps[ref]['value'])
+        f.SetFPID(pcbnew.LIB_ID(lib, name))
+        board.Add(f)
+        f.SetPosition(pos)
+        f.Reference().SetVisible(False)
+        fps[ref] = f
+    # 2. symbol paths from the regenerated schematic
+    for ref, f in fps.items():
+        if ref in comps:
+            f.SetPath(pcbnew.KIID_PATH(comps[ref]['path']))
+    # 3. tracks of nets that are re-routed: CHASSIS whole, VBUS whole
+    for t in list(board.GetTracks()):
+        if t.GetNetname() in ('CHASSIS', 'VBUS'):
+            _KEEP.append(t)
+            board.Remove(t)
+    # 4. move the stragglers next to their pad, first free spot on a spiral
+    others = [(_box(f), f.IsFlipped()) for r, f in fps.items() if r not in MOVE]
+    import math
+    for ref, (to, pad) in MOVE.items():
+        f = fps[ref]
+        tp = [p for p in fps[to].Pads() if p.GetNumber() == pad][0].GetPosition()
+        tx, ty = tp.x / 1e6, tp.y / 1e6
+        done = False
+        for r in [1.0 + 0.5 * k for k in range(80)]:
+            for s_ in range(max(1, int(2 * math.pi * r / 0.8))):
+                a = 2 * math.pi * s_ / max(1, int(2 * math.pi * r / 0.8))
+                x, y = tx + r * math.cos(a), ty + r * math.sin(a)
+                for rot in (0, 90):
+                    f.SetOrientationDegrees(rot)
+                    f.SetPosition(pcbnew.VECTOR2I(bp.mm(round(x * 4) / 4), bp.mm(round(y * 4) / 4)))
+                    b = _box(f)
+                    g = (b[0] - 0.25, b[1] - 0.25, b[2] + 0.25, b[3] + 0.25)
+                    if g[0] < 1 or g[1] < 1 or g[2] > bp.W - 1 or g[3] > bp.H - 1:
+                        continue
+                    if bp.touches_sp(g, 1.6):
+                        continue
+                    if any(bp.overlaps(g, o) for o, back in others
+                           if back == f.IsFlipped()):
+                        continue
+                    others.append((b, f.IsFlipped()))
+                    done = True
+                    break
+                if done:
+                    break
+            if done:
+                break
+        print('moved %s to %.2f, %.2f' % (ref, f.GetPosition().x / 1e6, f.GetPosition().y / 1e6))
+        # anything of any net now under the part, and its own old tracks, goes
+        b = _box(f)
+        mynets = {p.GetNetname() for p in f.Pads()}
+        for t in list(board.GetTracks()):
+            if bp.overlaps(_seg_box(t), b) or (t.GetNetname() in mynets
+                                               and t.GetNetname() not in ('GND',)
+                                               and bp.overlaps(_seg_box(t), (b[0] - 30, b[1] - 30, b[2] + 30, b[3] + 30))
+                                               and False):
+                _KEEP.append(t)
+                board.Remove(t)
+    # 5. In2 pours: ground everywhere, ACM in the corner
+    x1, y1, x2, y2 = bp.SP_ZONE
+    full = [(0.3, 0.3), (bp.W - 0.3, 0.3), (bp.W - 0.3, bp.H - 0.3), (0.3, bp.H - 0.3)]
+    sp = [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
+    if not any(z.GetLayer() == pcbnew.In2_Cu for z in board.Zones() if not z.GetIsRuleArea()):
+        bp.zone(board, board.FindNet('GND'), pcbnew.In2_Cu, full, 0, 'GND')
+        bp.zone(board, board.FindNet('SP_ACM'), pcbnew.In2_Cu, sp, 2, 'ACM')
+    for t in board.GetTracks():
+        t.SetLocked(True)
+    board.Save(BOARD)
+    print('fixup saved')
+
+
 if __name__ == '__main__':
     cmd = sys.argv[1]
     sys.exit({'export1': export1, 'import1': import1, 'export2': export2,
               'import2': import2, 'barrier': barrier, 'fill': cmd_fill,
-              'silk': silk}[cmd]() or 0)
+              'silk': silk, 'fixup': fixup}[cmd]() or 0)
