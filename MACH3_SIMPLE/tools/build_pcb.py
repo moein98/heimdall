@@ -73,7 +73,8 @@ ANCHORS = {
     'J30': (('T17', 'T18'), 180),
     # T9, the 5 V terminal of the board in service, has no counterpart any
     # more: 5 V is made on this board (U4), and its place on the edge is empty.
-    'J4': ('T10', 180),
+    # J4 is placed by hand (FIXED_PARTS): it is four screws now, the two of
+    # the board in service on their old spots and the sensor pair to the left.
     'J40': ('T130101', 0), 'J41': ('T120101', 0), 'J42': ('T1301', 0),
     'J43': ('T1201', 0), 'J44': ('T13', 0), 'J45': ('T12', 0),
     # The relays run right to left on the drawing, and each is turned on its
@@ -140,7 +141,7 @@ GROUPS = (
     ('switch',  (30.0, 51.0, 56.0, 78.0),
      r'^(U3|R4[0-7]|R52)$'),
     ('mcu',     (58.0, 44.0, 112.0, 78.0),
-     r'^(R5[01]|D30)$'),
+     r'^(R5[01]|D30|C35)$'),
     ('buffers', (116.0, 56.0, 146.0, 96.0),
      r'^R5$'),
     ('relaydrv', (32.0, 80.0, 116.0, 97.0),
@@ -184,15 +185,24 @@ MOUNTS = ((4.0, 4.0), (146.5, 4.0), (146.5, 133.9), (4.0, 133.9))
 #   C1  output capacitor, beside L1's +5V pad
 #   D10/R1, D11/R2  the two rail indicators
 FIXED_PARTS = {
-    'F2': (118.0, 6.0, 0),
+    # SENSORS / 24V IN. Its right-hand pair is exactly where the board in
+    # service has its 24 V terminal; the sensor pair extends it to the left.
+    'J4': (131.6, 3.8, 180),
+    'F2': (122.0, 17.0, 90),
     'D3': (126.0, 31.0, 0),
-    'C4': (113.0, 13.9, 0),
-    'C5': (106.6, 16.0, 90),
-    'U4': (113.5, 24.1, 0),
-    'D4': (101.5, 23.9, 270),
-    'L1': (99.0, 37.0, 270),
+    'C4': (110.0, 15.2, 0),
+    'C5': (104.0, 16.4, 90),
+    'U4': (110.5, 24.8, 0),
+    # Cathode down: level-ish with SW and straight above L1's switch pad, so
+    # the switch node is one short run on the top layer (SW_ROUTE).
+    'D4': (98.5, 24.6, 90),
+    'L1': (99.0, 37.4, 270),
     'C1': (111.5, 38.0, 0),
     'D10': (119.0, 31.2, 0), 'R1': (119.0, 34.0, 0),
+    # Test points: a THT ring a probe or a hook clip holds.
+    'TP1': (118.5, 37.5, 0), 'TP2': (121.5, 37.5, 0), 'TP3': (122.0, 24.5, 0),
+    # The handwheel's resettable fuse, below the handwheel terminal.
+    'F3': (87.0, 14.5, 90),
     'D11': (133.0, 31.0, 0), 'R2': (133.0, 33.8, 0),
 
     # The spindle block, in the top-left corner above the upper D-sub - empty
@@ -201,7 +211,9 @@ FIXED_PARTS = {
     # SP_ACM pour, which the board's GND pour keeps out of (SP_ZONE below).
     # U12 is turned so its phototransistors face up, into that side, and its
     # LEDs face down, out of it.
-    'J5': (37.0, 3.8, 180),
+    'J5': (41.0, 3.8, 180),
+    'TP4': (40.5, 15.0, 0), 'TP5': (43.5, 15.0, 0), 'TP6': (40.5, 19.5, 0),
+    'R103': (33.9, 47.3, 90), 'R102': (30.0, 96.8, 0),
     'U12': (27.5, 38.5, 90),
     'U13': (43.5, 33.5, 180),    # pins 4, 3 (VFD side) up; 2, 1 (V24, GND) down
     'C61': (43.0, 38.5, 90),
@@ -240,13 +252,28 @@ FIXED_PARTS = {
 # tools/autoroute.py routes the board with a keepout over this area and the
 # VFD side on its own afterwards (see route_vfd there), and its `barrier`
 # check fails if any board-side track or via is inside.
-SP_ZONE = ((13.5, 0.5), (45.5, 0.5), (45.5, 29.69), (38.1, 29.69),
-           (38.1, 38.5), (16.3, 38.5), (16.3, 12.0), (13.5, 12.0))
+SP_ZONE = ((13.5, 0.5), (45.5, 0.5), (45.5, 29.69), (38.4, 29.69),
+           (38.4, 38.5), (16.3, 38.5), (16.3, 12.0), (13.5, 12.0))
 
 # Every net on the VFD side of the barrier.
 VFD_NETS = ('SP_12V', 'SP_5V', 'SP_ACM', 'SP_AVI', 'SP_CHOP', 'SP_F1',
             'SP_F2', 'SP_FB', 'SP_OUT', 'SP_RF', 'SP_UNUSED', 'SP_FWD',
-            'SP_REV', 'SP_DCM')
+            'SP_REV', 'SP_AUX', 'SP_DCM')
+
+# What each indicator, test point and trimmer is for, printed where its
+# designator would be. The designators stay on F.Fab for assembly; on the
+# silkscreen, '24V' says more than 'D11'.
+FUNCTION = {'D10': '5V', 'D11': '24V', 'D30': 'SERIAL',
+            'D50': 'A', 'D51': 'B', 'D52': 'C', 'D53': 'D', 'D54': 'E',
+            'D55': 'F', 'RV1': '10V ADJ',
+            'TP1': 'GND', 'TP2': '5V', 'TP3': '24V',
+            'TP4': 'ACM', 'TP5': '12V', 'TP6': 'AVI'}
+
+# The buck's switch node, drawn here rather than left to the router, which
+# took it round through two vias: U4 pin 2 across to D4's cathode, and
+# straight down to L1's switch pad, all on the top layer. Written locked, so
+# the router routes around it and autoroute.py keeps it through each import.
+SW_ROUTE = (('U4', '2'), ('D4', '1'), ('L1', '1'))
 
 
 def uid():
@@ -720,6 +747,31 @@ def input_row(comps):
     return out
 
 
+BARRIER_SILK = (((45.5, 11.0), (45.5, 29.69)), ((45.5, 29.69), (45.1, 29.69)),
+                ((38.1, 29.69), (38.1, 38.5)),
+                ((16.3, 38.5), (16.3, 12.0)), ((16.3, 12.0), (13.5, 12.0)))
+
+
+def sw_route(comps, where_at, nets, width=0.6):
+    """The locked switch-node track, from SW_ROUTE's three pads."""
+    pts = []
+    for ref, num in SW_ROUTE:
+        x, y, rot = where_at[ref]
+        pts.append({n: (px, py) for n, px, py in
+                    pad_points(comps[ref]['fp'], x, y, rot)}[num])
+    (sx, sy), (kx, ky), (lx, ly) = pts
+    jog = kx + 1.45                     # clear of D4's anode pad and U4 pin 3
+    path = [(sx, sy), (jog, sy), (jog, ky), (kx, ky), (kx, ly)]
+    net = comps['U4']['pads']['2']
+    out = []
+    for (x1, y1), (x2, y2) in zip(path, path[1:]):
+        out.append('\t(segment (start %s %s) (end %s %s) (width %s) (locked yes)'
+                   ' (layer "F.Cu") (net %d) (uuid "%s"))'
+                   % (fmt(x1), fmt(y1), fmt(x2), fmt(y2), fmt(width),
+                      nets[net], uid()))
+    return out
+
+
 def pad_points(fpid, x, y, rot):
     """[(pad number, board x, board y)] of the numbered pads, left to right."""
     body = load_footprint(fpid)
@@ -916,12 +968,14 @@ REF_AT = {
     'U10': (0.0, 0.0), 'U11': (0.0, 0.0),
     # The power corner.
     'U4': (8.0, 0.0), 'D4': (-2.6, 0.0), 'D3': (0.0, 2.6),
-    'D10': (-3.3, 0.0), 'R1': (2.6, 0.0), 'D11': (0.0, -1.6), 'R2': (0.0, 1.6),
+    'D10': (2.6, 0.0), 'R1': (2.6, 0.0), 'D11': (0.0, -1.6), 'R2': (0.0, 1.6),
+    'RV1': (-2.54, -1.6), 'RN1': (-2.8, 0.0), 'R101': (0.0, -1.4),
+    **{r: (0.0, 2.3) for r in ('TP1', 'TP2', 'TP3', 'TP4', 'TP5', 'TP6')},
     'U12': (0.0, 0.0), 'U15': (0.0, 0.0), 'U16': (0.0, 0.0),
     'U13': (-3.2, -3.8),    # on the module's body
     'U14': (0.0, 3.3),
     'R100': (1.7, 0.0),
-    'R101': (-3.0, 0.0), 'C67': (2.6, 0.0), 'C66': (-3.0, 0.0),
+    'C67': (2.6, 0.0), 'C66': (-3.0, 0.0),
     **{r: (0.0, 1.7) for r in ('R96', 'R97', 'C64', 'R98', 'C65')},
 }
 
@@ -930,8 +984,8 @@ REF_AT = {
 LABELS = {
     'J1': ('LPT PORT 1', 'STEP / DIR / HOME'),
     'J2': ('LPT PORT 2', 'E-STOP / MPG'),
-    'J4': ('24V IN', '+24  0V'),
-    'J5': ('VFD - ISOLATED', 'AVI  ACM  FWD  REV  DCM'),
+    'J4': ('SENSORS    24V IN', '+24  0V  +24  0V'),
+    'J5': ('VFD - ISOLATED', 'AVI  ACM  FWD  REV  AUX  DCM'),
     'J30': ('HANDWHEEL', '+5  0V  A  B'),
     'J50': ('RS232', 'RX  TX  GND'),
 }
@@ -1030,7 +1084,7 @@ def main():
         counts[where] = counts.get(where, 0) + 1
         pending.append((ref, c, x, y, rot))
 
-    pos = {}
+    pos, where_at, funcs = {}, {}, []
     for sh in shelves + [spare]:
         pos.update(sh.spread())
     for ref, c, x, y, rot in pending:
@@ -1038,8 +1092,13 @@ def main():
             x, y = pos[ref]
         placed.append(footprint_instance(c['fp'], ref, c['value'], x, y,
                                          c['pads'], rot, c.get('fields'),
-                                         ref in LABELS or ref in hole_refs,
+                                         ref in LABELS or ref in hole_refs
+                                         or ref in FUNCTION,
                                          nets, REF_AT.get(ref), c.get('dnp')))
+        where_at[ref] = (x, y, rot)
+        if ref in FUNCTION:
+            dx, dy = REF_AT.get(ref, (0.0, footprint_box(c['fp'])[1] - 0.9))
+            funcs.append(silk(FUNCTION[ref], x + dx, y + dy, 0, 0.8))
 
     edge = []
     for x1, y1, x2, y2 in ((0, 0, BOARD_W, 0), (BOARD_W, 0, BOARD_W, BOARD_H),
@@ -1090,6 +1149,16 @@ def main():
                     silks.append(silk(line, cx, y + by1 - 1.4 - 2.2 * k, 0,
                                       1.1 if k == 0 else 0.9,
                                       layer='F.Fab'))
+                # And on the back silkscreen, where there is room: A0 had
+                # these on F.Fab alone, which is not printed, so the six relay
+                # terminals carried no marking at all. Mirrored, to read from
+                # the back; one word over each screw.
+                pads = pad_points(comps[ref]['fp'], x, y, rot)
+                for word, (_n, px, py) in zip(lab[1].split(), pads):
+                    silks.append(silk(word, px, py - 3.0, 0, 1.0,
+                                      'mirror', layer='B.SilkS'))
+                silks.append(silk(lab[0], cx, py - 5.0, 0, 1.2, 'mirror',
+                                  layer='B.SilkS'))
             elif side == 'left':
                 silks.append(silk(lab[1], x + bx2 + 1.6, cy, 270, 0.9))
                 silks.append(silk(lab[0], x + bx2 + 4.0, cy, 270, 1.2))
@@ -1099,10 +1168,12 @@ def main():
     HEAD = {'buffers': 'AXIS BUFFERS',
             'mcu': 'MCU', 'relaydrv': 'RELAY DRIVERS',
             'switch': 'MPG / THC SWITCH', 'serial': 'RS232', 'chassis': 'SHELL'}
+    # The MCU heading goes by the MCU, not over the input row above its band.
+    HEAD_AT = {'mcu': (84.5, 57.5), 'switch': (40.0, 50.6)}
     for name, rect, _ in GROUPS:
         if HEAD[name]:
-            silks.append(silk(HEAD[name], rect[0] + 1.0, rect[1] - 1.2, 0, 1.3,
-                              'left bottom'))
+            hx, hy = HEAD_AT.get(name, (rect[0] + 1.0, rect[1] - 1.2))
+            silks.append(silk(HEAD[name], hx, hy, 0, 1.3, 'left bottom'))
     # In the space the 5 V terminal and its parts left, now that the top-left
     # corner holds the spindle terminal.
     silks.append(silk('MACH3-SIMPLE A1', 96.0, 45.5, 0, 1.2, 'left bottom'))
@@ -1110,6 +1181,23 @@ def main():
                       'left bottom'))
     silks.append(silk('5V BUCK', 92.3, 17.5, 0, 1.3, 'left bottom'))
     silks.append(silk('POWER', 124.0, 36.0, 0, 1.3, 'left bottom'))
+    silks.extend(funcs)
+    # The relay letter on each relay body, top left, clear of its symbol.
+    # Above the body, in the strip below the flyback diodes, to the left.
+    for i in range(6):
+        kx, ky, kr = where_at['K%d' % (1 + i)]
+        kb = rot_box(footprint_box(comps['K%d' % (1 + i)]['fp']), kr)
+        silks.append(silk('RELAY ' + 'ABCDEF'[i], kx + (kb[0] + kb[2]) / 2 - 6.3,
+                          ky + kb[1] - 1.3, 0, 1.1))
+    # The isolation barrier, dashed, along the VFD side's inner edges - where
+    # it does not already run along the board edge or through U12, which is
+    # itself the barrier there.
+    for (x1, y1), (x2, y2) in BARRIER_SILK:
+        silks.append('\t(gr_line (start %s %s) (end %s %s) (stroke (width 0.15)'
+                     ' (type dash)) (layer "F.SilkS") (uuid "%s"))'
+                     % (fmt(x1), fmt(y1), fmt(x2), fmt(y2), uid()))
+    silks.append(silk('ISOLATED', 46.3, 20.0, 90, 0.8))
+    tracks = sw_route(comps, where_at, nets)
 
     zone = ('\t(zone\n\t\t(net %d)\n\t\t(net_name "GND")'
             '\n\t\t(layers "F.Cu" "B.Cu")\n\t\t(uuid "%s")\n\t\t(name "GND pour")'
@@ -1144,6 +1232,7 @@ def main():
             ' (grid_origin 0 0))')
     with open(OUT, 'w', encoding='utf-8', newline='') as f:
         f.write(head + '\n' + '\n'.join(decl + edge + silks + placed
+                                        + tracks
                                         + [zone] + ([sp_zone] if 'SP_ACM' in nets else []))
                 + '\n)\n')
     write_rules()

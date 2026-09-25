@@ -82,16 +82,79 @@ def keepout(board, pts):
     return z
 
 
-def counts(board):
-    tracks = [t for t in board.GetTracks()
-              if t.GetClass() in ('PCB_TRACK', 'PCB_ARC')]
-    vias = [t for t in board.GetTracks() if t.GetClass() == 'PCB_VIA']
+def counts(board, unlocked_only=False):
+    items = [t for t in board.GetTracks()
+             if not (unlocked_only and t.IsLocked())]
+    tracks = [t for t in items if t.GetClass() in ('PCB_TRACK', 'PCB_ARC')]
+    vias = [t for t in items if t.GetClass() == 'PCB_VIA']
     return len(tracks), len(vias)
+
+
+def snapshot(board, keep):
+    """Plain-number copies of the tracks and vias `keep` accepts.
+
+    Numbers, not the objects' own points: those belong to the tracks, and a
+    session import deletes the tracks.
+    """
+    out = []
+    for tr in board.GetTracks():
+        if not keep(tr):
+            continue
+        if tr.GetClass() == 'PCB_VIA':
+            p = tr.GetPosition()
+            out.append(('via', tr.GetNetname(), (int(p.x), int(p.y)),
+                        int(tr.GetWidth(pcbnew.F_Cu)), int(tr.GetDrillValue())))
+        else:
+            a, b = tr.GetStart(), tr.GetEnd()
+            out.append(('track', tr.GetNetname(), (int(a.x), int(a.y)),
+                        (int(b.x), int(b.y)), int(tr.GetWidth()),
+                        int(tr.GetLayer())))
+    return out
+
+
+def restore(board, items, locked=False):
+    """Put snapshot() items back on the board. Returns what was added.
+
+    Anything already there is skipped: a session sometimes carries the fixed
+    wiring as well, and putting it back again stacked the buck's switch node
+    two tracks deep.
+    """
+    have = set(snapshot(board, lambda tr: True))
+    added = []
+    for item in items:
+        if item in have:
+            continue
+        net = board.FindNet(item[1])
+        if item[0] == 'via':
+            _k, _n, pos, width, drill = item
+            new = pcbnew.PCB_VIA(board)
+            new.SetPosition(pcbnew.VECTOR2I(*pos))
+            try:
+                new.SetWidth(width)
+            except TypeError:
+                new.SetWidth(pcbnew.F_Cu, width)
+            new.SetDrill(drill)
+            new.SetViaType(pcbnew.VIATYPE_THROUGH)
+        else:
+            _k, _n, a, b, width, layer = item
+            new = pcbnew.PCB_TRACK(board)
+            new.SetStart(pcbnew.VECTOR2I(*a))
+            new.SetEnd(pcbnew.VECTOR2I(*b))
+            new.SetWidth(width)
+            new.SetLayer(layer)
+        new.SetNet(net)
+        new.SetLocked(locked)
+        board.Add(new)
+        new.thisown = False
+        added.append(new)
+    return added
 
 
 def export():
     board = pcbnew.LoadBoard(BOARD)
-    t, v = counts(board)
+    # Locked tracks are hand-drawn ones build_pcb.py writes (the buck's
+    # switch node); they go out as fixed wiring and the router routes round.
+    t, v = counts(board, unlocked_only=True)
     if t or v:
         print('REFUSING : %s already has %d tracks and %d vias.' % (BOARD, t, v))
         print('           Export from the unrouted board: run build_pcb.py --force.')
@@ -139,14 +202,19 @@ def import_ses():
         print('no %s - run Freerouting first' % SES)
         return 1
     board = pcbnew.LoadBoard(BOARD)
-    t, v = counts(board)
+    t, v = counts(board, unlocked_only=True)
     if t or v:
         print('REFUSING : %s already has %d tracks and %d vias.' % (BOARD, t, v))
         print('           Importing on top of them would double every route.')
         return 1
+    # A session holds only what the router drew, and importing one replaces
+    # every track on the board - the locked hand-drawn ones included. So they
+    # are copied out first and put back, still locked, afterwards.
+    fixed = snapshot(board, lambda tr: tr.IsLocked())
     if not pcbnew.ImportSpecctraSES(board, SES):
         print('import failed')
         return 1
+    held = restore(board, fixed, locked=True)
     # The pour has to be refilled around the new copper, or it still covers
     # the places the tracks now run and DRC reports every one as a short.
     filler = pcbnew.ZONE_FILLER(board)
@@ -198,21 +266,7 @@ def vfd_import():
         return 1
     _zone, vfd_nets = vfd_side()
     board = pcbnew.LoadBoard(BOARD)
-    first = []
-    for tr in board.GetTracks():
-        if tr.GetNetname() in vfd_nets:
-            continue                        # from an earlier second pass
-        # Plain numbers, not the points themselves: those belong to the
-        # tracks, and the import below deletes the tracks.
-        if tr.GetClass() == 'PCB_VIA':
-            p = tr.GetPosition()
-            first.append(('via', tr.GetNetname(), (int(p.x), int(p.y)),
-                          int(tr.GetWidth(pcbnew.F_Cu)), int(tr.GetDrillValue())))
-        else:
-            a, b = tr.GetStart(), tr.GetEnd()
-            first.append(('track', tr.GetNetname(), (int(a.x), int(a.y)),
-                          (int(b.x), int(b.y)), int(tr.GetWidth()),
-                          int(tr.GetLayer())))
+    first = snapshot(board, lambda tr: tr.GetNetname() not in vfd_nets)
     if not pcbnew.ImportSpecctraSES(board, SES_VFD):
         print('import failed')
         return 1
@@ -222,38 +276,81 @@ def vfd_import():
     for tr in dropped:
         board.Remove(tr)
     vfd = sum(1 for _ in board.GetTracks())
-    keep = []
-    for item in first:
-        net = board.FindNet(item[1])
-        if item[0] == 'via':
-            _k, _n, pos, width, drill = item
-            v = pcbnew.PCB_VIA(board)
-            v.SetPosition(pcbnew.VECTOR2I(*pos))
-            try:
-                v.SetWidth(width)
-            except TypeError:
-                v.SetWidth(pcbnew.F_Cu, width)
-            v.SetDrill(drill)
-            v.SetViaType(pcbnew.VIATYPE_THROUGH)
-            v.SetNet(net)
-            new = v
-        else:
-            _k, _n, a, b, width, layer = item
-            new = pcbnew.PCB_TRACK(board)
-            new.SetStart(pcbnew.VECTOR2I(*a))
-            new.SetEnd(pcbnew.VECTOR2I(*b))
-            new.SetWidth(width)
-            new.SetLayer(layer)
-            new.SetNet(net)
-        board.Add(new)
-        new.thisown = False
-        keep.append(new)
+    keep = restore(board, first)
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
     board.Save(BOARD)
     t, v = counts(board)
     print('imported  : %d VFD-side tracks and vias, %d first-pass ones kept,'
           ' %d board-side wires in the session dropped -> %s'
           % (vfd, len(first), len(dropped), BOARD))
+    return 0
+
+
+def fill_export():
+    """A finishing pass for whatever the first two left open.
+
+    Everything routed is locked and only the open connections are left for
+    the router; bring it back with `import`, check it with `barrier`, then
+    `unlock`. Needed when the first pass leaves a board-side net
+    unrouted: the second pass has no keepout, so what it routes for a board
+    net is dropped by vfd-import rather than let through the VFD side.
+    """
+    board = pcbnew.LoadBoard(BOARD)
+    for tr in board.GetTracks():
+        tr.SetLocked(True)
+    removed = [z for z in board.Zones() if z.GetNetname() in ('GND', 'SP_ACM')]
+    for z in removed:
+        board.Remove(z)
+    # No keepout here: with the VFD side's own tracks locked inside one, the
+    # router counts every one of them as a violation and stalls. `barrier`
+    # afterwards is what says whether the new copper stayed out.
+    if not pcbnew.ExportSpecctraDSN(board, DSN):
+        print('export failed')
+        return 1
+    print('exported  : %s (all routed copper locked)' % DSN)
+    return 0
+
+
+def fill_import(nets):
+    """Take from a finishing pass's session only the wires of `nets`.
+
+    With everything locked, the router also re-draws connections whose
+    locked ends it reads as a hair off their pads; those duplicates are
+    dropped, and the board keeps exactly what it had plus the named nets.
+    """
+    board = pcbnew.LoadBoard(BOARD)
+    before = snapshot(board, lambda tr: True)
+    if not pcbnew.ImportSpecctraSES(board, SES):
+        print('import failed')
+        return 1
+    dropped = [tr for tr in board.GetTracks() if tr.GetNetname() not in nets]
+    for tr in dropped:
+        board.Remove(tr)
+    new = sum(1 for _ in board.GetTracks())
+    kept = restore(board, before, locked=True)
+    pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+    board.Save(BOARD)
+    print('imported  : %d new tracks and vias on %s' % (new, ', '.join(nets)))
+    return 0
+
+
+def unlock():
+    board = pcbnew.LoadBoard(BOARD)
+    n = 0
+    for tr in board.GetTracks():
+        if tr.IsLocked():
+            tr.SetLocked(False)
+            n += 1
+    # The hand-drawn switch node stays locked, so a later re-route keeps it.
+    from build_pcb import SW_ROUTE
+    sw = board.FindFootprintByReference(SW_ROUTE[0][0])
+    net = [p for p in sw.Pads() if p.GetNumber() == SW_ROUTE[0][1]][0].GetNetname()
+    for tr in board.GetTracks():
+        if tr.GetNetname() == net and tr.GetClass() == 'PCB_TRACK':
+            tr.SetLocked(True)
+    pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+    board.Save(BOARD)
+    print('unlocked  : %d tracks and vias' % n)
     return 0
 
 
@@ -567,5 +664,11 @@ if __name__ == '__main__':
         sys.exit(vfd_import())
     if what == 'barrier':
         sys.exit(barrier())
+    if what == 'fill-export':
+        sys.exit(fill_export())
+    if what == 'unlock':
+        sys.exit(unlock())
+    if what == 'fill-import':
+        sys.exit(fill_import(sys.argv[2:]))
     print(__doc__)
     sys.exit(2)

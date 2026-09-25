@@ -114,7 +114,8 @@ P2_IN = [('15', 'ESTOP'), ('10', 'THC_UP'), ('11', 'THC_DOWN'),
 # nearest the top of the lower D-sub, the end closest to the spindle block.
 # In Mach3: pin 7 is the spindle step/PWM pin, pin 8 Output #1 (M3, CW) and
 # pin 9 Output #2 (M4, CCW).
-P2_SPINDLE = [('7', 'SP_PWM_IN'), ('8', 'SP_FWD_IN'), ('9', 'SP_REV_IN')]
+P2_SPINDLE = [('7', 'SP_PWM_IN'), ('8', 'SP_FWD_IN'), ('9', 'SP_REV_IN'),
+              ('6', 'SP_AUX_IN')]
 
 # 24 V sensor channels, in the order they sit along the top edge.
 SENSORS = [('ESTOP', 'E-stop'), ('C_HOME', 'C home'), ('A_HOME', 'A home'),
@@ -212,25 +213,33 @@ def build_power():
     s.box(203.2, 40.64, 381.0, 111.76, '24 V SENSOR AND RELAY SUPPLY')
     s.text('Feeds the sensor loops and the relay coils. Nothing on this board', 205.74, 48.26)
     s.text('switches mains; the relay contacts drive 24 V coils only.', 205.74, 53.34)
-    j24 = s.place('Connector', 'Conn_01x02_Pin', 'J4', '24V IN', 215.9, 76.2,
-                  footprint=TERM % (2, 2))
+    # Four screws, left to right: +24 and 0V for the sensors, then +24 and
+    # 0V in. The sensors used to have to share the supply's own two screws -
+    # a PSU lead and six sensor leads under one screw. Their pair is after
+    # the fuse and the reverse diode, so a shorted sensor cable blows F2.
+    j24 = s.place('Connector', 'Conn_01x04_Pin', 'J4', 'SENSORS / 24V IN',
+                  215.9, 76.2, footprint=TERM % (4, 4))
     f24 = s.place('Device', 'Fuse', 'F2', '1A slow 1206', 246.38, 76.2,
                   footprint='Fuse:Fuse_1206_3216Metric', rot=90)
     d24 = s.place('Device', 'D_Schottky', 'D2', 'SS34 reverse', 279.4, 76.2,
                   footprint='Diode_SMD:D_SMA', rot=180)
     tvs = s.place('Device', 'D_TVS', 'D3', 'SMAJ26A', 309.88, 88.9,
                   footprint='Diode_SMD:D_SMA', rot=270)
-    c24 = s.place('Device', 'C_Polarized', 'C2', '100uF 50V', 345.44, 88.9,
+    # 47 uF, not 100: a 50 V part in this 6.3 x 7.7 can is 47 uF at most.
+    # C4, beside the buck, is another 47 uF on the same rail.
+    c24 = s.place('Device', 'C_Polarized', 'C2', '47uF 50V', 345.44, 88.9,
                   footprint='Capacitor_SMD:CP_Elec_6.3x7.7')
     # Labels, not a wire: pin 2 is drawn beside pin 1, and a wire from it to
     # the fuse would run across pin 1.
-    s.net(j24, TOP_PIN(0, 2), 'VIN24')             # +24, the left screw
+    s.net(j24, TOP_PIN(2, 4), 'VIN24')             # +24 in, third screw
     s.net(f24, 1, 'VIN24')
     s.link(f24, 2, d24, 2, 'VIN24F')
     s.link(d24, 1, tvs, 1, 'V24', via_y=76.2)
     s.link(tvs, 1, c24, 1, 'V24')
     s.link(tvs, 2, c24, 2, 'GND')
-    s.net(j24, TOP_PIN(1, 2), 'GND')               # 0V, the right screw
+    s.net(j24, TOP_PIN(3, 4), 'GND')               # 0V in, the right screw
+    s.net(j24, TOP_PIN(0, 4), 'V24')               # +24 to the sensors
+    s.net(j24, TOP_PIN(1, 4), 'GND')               # 0V to the sensors
 
     s.box(12.7, 124.46, 190.5, 177.8, 'RAIL INDICATORS')
     s.text('See at a glance which supply is missing. 10k on 24 V, not 4k7:', 15.24, 132.08)
@@ -269,6 +278,10 @@ def build_power():
         s.label(net, fx, fy + 6.35, 270)
         fl.used.add('1')
 
+    s.box(203.2, 190.5, 381.0, 228.6, 'TEST POINTS')
+    add_test_points(s, (('TP1', 'GND', 'GND'), ('TP2', '+5V', '5V'),
+                        ('TP3', 'V24', '24V')), 228.6, 215.9)
+
     s.box(12.7, 190.5, 190.5, 228.6, 'MOUNTING')
     for i in range(4):
         s.place('Mechanical', 'MountingHole', 'H%d' % (i + 1), 'M3',
@@ -298,7 +311,10 @@ def build_outputs():
     s.box(114.3, 45.72, 330.2, 190.5, 'BUFFERS')
     bufs = {}
     for k in range(2):
-        u = s.place('74xx', '74HC245', 'U%d' % (1 + k), '74HC245',
+        # Fitted as a 74AC245, same pinout: 24 mA per output and far more
+        # through its supply pins than a 74HC245's 70 mA, which eight
+        # step/dir outputs into opto-input drivers (10-15 mA each) exceed.
+        u = s.place('74xx', '74HC245', 'U%d' % (1 + k), '74AC245',
                     165.1 + k * 101.6, 76.2, footprint=SOIC20)
         s.net(u, '20', '+5V')
         s.net(u, '10', 'GND')
@@ -455,7 +471,14 @@ def build_inputs():
     jm = s.place('Connector', 'Conn_01x04_Pin', 'J30', 'MPG handwheel',
                  149.86, 262.89, footprint=TERM % (4, 4))
     # Left to right: +5  0V  A  B.
-    s.net(jm, TOP_PIN(0, 4), '+5V')
+    # The handwheel's +5V goes out on a cable, through a resettable fuse, so
+    # a short in that cable trips F3 instead of pulling down the board's 5 V
+    # rail and resetting the MCU with it.
+    s.net(jm, TOP_PIN(0, 4), 'MPG_5V')
+    pf = s.place('Device', 'Polyfuse', 'F3', '200mA hold PTC 1206', 190.5, 238.76,
+                 footprint='Fuse:Fuse_1206_3216Metric')
+    s.net(pf, 1, '+5V')
+    s.net(pf, 2, 'MPG_5V')
     s.net(jm, TOP_PIN(1, 4), 'GND')
     for i, ch in enumerate(('A', 'B')):
         s.net(jm, TOP_PIN(2 + i, 4), 'MPG_%s_RAW' % ch)
@@ -630,6 +653,11 @@ def build_relays():
     rr = s.place('Device', 'R', 'R50', '10k', 25.4, 165.1, footprint=R0603)
     s.net(rr, 1, 'MCU_RESET')
     s.net(rr, 2, '+5V')
+    # 10 nF on reset, against the spikes six relay coils put on a shared
+    # ground. Small enough for the USBasp to pull it low through ISP.
+    cr = s.place('Device', 'C', 'C35', '10nF', 25.4, 190.5, footprint=C0603)
+    s.net(cr, 1, 'MCU_RESET')
+    s.net(cr, 2, 'GND')
     s.net(mcu, by['PD0'], 'MCU_RX')
     s.net(mcu, by['PD1'], 'MCU_TX')
 
@@ -743,7 +771,9 @@ def build_relays():
         s.net(t, 2, 'K%s_COM' % ch)
         s.net(t, 3, 'K%s_NC' % ch)
 
-        rli = s.place('Device', 'R', 'R%d' % (80 + i), '4k7', 279.4, y + 22.86,
+        # 10k, not 4k7: at 4k7 it was (24-2)^2/4700 = 103 mW in a 100 mW
+        # 0603, for as long as the relay is on. 10k is 48 mW and 2 mA.
+        rli = s.place('Device', 'R', 'R%d' % (80 + i), '10k', 279.4, y + 22.86,
                       footprint=R0603)
         dli = s.place('Device', 'LED', 'D%d' % (50 + i), 'K%s' % ch,
                       330.2, y + 22.86, footprint=LED0603, rot=180)
@@ -751,6 +781,15 @@ def build_relays():
         s.link(rli, 2, dli, 2)
         s.net(dli, 1, 'RELC_%s' % ch)
     return s
+
+
+def add_test_points(s, points, x0, y0):
+    """One probe pad per net: a THT ring a meter probe or a hook clip holds."""
+    for i, (ref, net, label) in enumerate(points):
+        tp = s.place('Connector', 'TestPoint', ref, label, x0 + i * 25.4, y0,
+                     footprint='TestPoint:TestPoint_THTPad_D2.0mm_Drill1.0mm')
+        tp.in_bom = 'no'                # a bare pad, nothing to buy
+        s.net(tp, 1, net)
 
 
 # -------------------------------------------------------- 05 spindle --
@@ -795,21 +834,26 @@ def build_spindle():
                             footprint='Package_SO:SOIC-14_3.9x8.7mm_P1.27mm')
     s.net(inv[7], '14', '+5V')
     s.net(inv[7], '7', 'GND')
-    for unit, (gin, gout) in ((4, ('9', '8')), (5, ('11', '10')),
-                              (6, ('13', '12'))):
+    for unit, (gin, gout) in ((5, ('11', '10')), (6, ('13', '12'))):
         s.net(inv[unit], gin, 'GND')     # unused gates: input held, output open
         s.nc(inv[unit], gout)
+    # AUX, on port 2 pin 6, is a fourth contact to DCM for one of the VFD's
+    # multi-function inputs (fault reset, a preset speed, ...). It uses the
+    # optocoupler's fourth channel. A fault input back to Mach3 would have
+    # been the other use, but both ports' input pins are all taken.
     chans = (('PWM', 1, ('1', '2')), ('FWD', 2, ('3', '4')),
-             ('REV', 3, ('5', '6')))
+             ('REV', 3, ('5', '6')), ('AUX', 4, ('9', '8')))
+    pulldown = ('R90', 'R91', 'R92', 'R102')
+    ledres = ('R93', 'R94', 'R95', 'R103')
     for i, (name, unit, (gin, gout)) in enumerate(chans):
         y = 76.2 + i * 25.4
-        pd = s.place('Device', 'R', 'R%d' % (90 + i), '10k pull-down', 50.8, y,
+        pd = s.place('Device', 'R', pulldown[i], '10k pull-down', 50.8, y,
                      footprint=R0603)
         s.net(pd, 1, 'SP_%s_IN' % name)
         s.net(pd, 2, 'GND')
         s.net(inv[unit], gin, 'SP_%s_IN' % name)
         s.net(inv[unit], gout, 'SP_%s_K' % name)
-        rl = s.place('Device', 'R', 'R%d' % (93 + i), '330R', 132.08, y + 7.62,
+        rl = s.place('Device', 'R', ledres[i], '330R', 132.08, y + 7.62,
                      footprint=R0603)
         s.net(rl, 1, '+5V')
         s.net(rl, 2, 'SP_%s_A' % name)
@@ -829,10 +873,6 @@ def build_spindle():
         s.net(u, a, 'SP_%s_A' % name)
         s.net(u, k, 'SP_%s_K' % name)
         opto[name] = (u, c, e)
-    spare = s.place('Isolator', 'PC847', 'U12', 'PC847', 241.3, 152.4,
-                    footprint=SMDIP16, unit=4)
-    for q in spare.pins:
-        s.nc(spare, q['num'])
     iso = s.place('Converter_DCDC_Isolated', 'CRE1S2412SC', 'U13',
                   'B2412S-1WR3', 241.3, 172.72,
                   footprint='Converter_DCDC:Converter_DCDC_Murata_CRE1xxxxxxSC_THT')
@@ -913,18 +953,23 @@ def build_spindle():
         s.net(c, 2, 'SP_ACM')
 
     # Direction: each phototransistor is a contact from the VFD input to DCM.
-    for name in ('FWD', 'REV'):
+    for name in ('FWD', 'REV', 'AUX'):
         u, c, e = opto[name]
         s.net(u, c, 'SP_%s' % name)
         s.net(u, e, 'SP_DCM')
 
-    s.box(12.7, 198.12, 571.5, 243.84, 'VFD TERMINAL')
-    s.text('AVI ACM FWD REV DCM. Most VFDs ship with FWD/REV in NPN (sink) mode,', 15.24, 205.74)
+    s.box(304.8, 198.12, 571.5, 243.84, 'VFD-SIDE TEST POINTS - measure against ACM')
+    add_test_points(s, (('TP4', 'SP_ACM', 'ACM'), ('TP5', 'SP_12V', '12V'),
+                        ('TP6', 'SP_AVI', 'AVI')), 330.2, 228.6)
+
+    s.box(12.7, 198.12, 292.1, 243.84, 'VFD TERMINAL')
+    s.text('AVI ACM FWD REV AUX DCM. Most VFDs ship with FWD/REV in NPN (sink) mode,', 15.24, 205.74)
     s.text('which is what these outputs need. PC847: 35 V, 50 mA per output.', 15.24, 210.82)
-    j = s.place('Connector', 'Conn_01x05_Pin', 'J5', 'VFD', 76.2, 228.6,
-                footprint=TERM % (5, 5))
-    for pos, net in enumerate(('SP_AVI', 'SP_ACM', 'SP_FWD', 'SP_REV', 'SP_DCM')):
-        s.net(j, TOP_PIN(pos, 5), net)
+    j = s.place('Connector', 'Conn_01x06_Pin', 'J5', 'VFD', 76.2, 228.6,
+                footprint=TERM % (6, 6))
+    for pos, net in enumerate(('SP_AVI', 'SP_ACM', 'SP_FWD', 'SP_REV',
+                               'SP_AUX', 'SP_DCM')):
+        s.net(j, TOP_PIN(pos, 6), net)
     return s
 
 

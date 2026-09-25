@@ -36,7 +36,7 @@ DRIVING = ('output', 'power_out', 'bidirectional')
 # far end, not here. FWD and REV are phototransistors switching the VFD's own
 # inputs to its DCM; the VFD's input pull-up is what gives them a level, and
 # nothing on this side of the barrier may.
-HELD_OFF_BOARD = ('SP_FWD', 'SP_REV', 'SP_DCM')
+HELD_OFF_BOARD = ('SP_FWD', 'SP_REV', 'SP_AUX', 'SP_DCM')
 
 
 def nodes():

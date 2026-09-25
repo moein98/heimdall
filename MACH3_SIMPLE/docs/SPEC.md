@@ -13,11 +13,11 @@ see *What A1 changed*.
 | | |
 |---|---|
 | Board | 150.5 × 137.9 mm, 2 layers, 1.6 mm |
-| Parts | 168 |
-| Nets | 185 |
+| Parts | 178 (167 to buy; 6 test points, 4 mounting holes, 1 not fitted) |
+| Nets | 184 |
 | Ground | one, continuous. **No galvanic isolation**, except the VFD port |
 | Supplies | **24 V only**, from outside. +5V is made on the board by an LM2596S-5.0 buck (`U4`) |
-| VFD port | `J5`: isolated 0-10 V speed (`AVI`/`ACM`) and FWD/REV contacts (`FWD`/`REV`/`DCM`) |
+| VFD port | `J5`: isolated 0-10 V speed (`AVI`/`ACM`) and FWD/REV/AUX contacts (`FWD`/`REV`/`AUX`/`DCM`) |
 
 ## What A1 changed
 
@@ -30,6 +30,23 @@ see *What A1 changed*.
 | Opto LED protection | promised, not there | `D20`-`D25` | a sensor lead that goes negative puts more than the LED's 6 V reverse rating across it |
 | Spindle | none | isolated 0-10 V and FWD/REV | see *Spindle* |
 | Input layout | passives packed into a band | a column per channel, under its own screw | the band no longer fitted; see *Inputs* |
+
+### And from A1's own design review
+
+| | Before | After | Why |
+|---|---|---|---|
+| Relay terminal legends | on F.Fab only - not printed | `RELAY A` and `NO COM NC` under each screw on the back silkscreen, `RELAY A`-`F` on the front | the six relay terminals carried no marking at all |
+| `R80`-`R85` | 4k7 0603 | 10k | (24-2)²/4700 = 103 mW in a 100 mW part, for as long as a relay is on. Now 48 mW; the LED runs at 2 mA |
+| `U1`, `U2` | 74HC245 | 74AC245, same pads | an opto-input stepper driver takes 10-15 mA; a 74HC245 is specified to 6 mA an output and 70 mA through its supply pins, and `U1` has eight outputs |
+| `J4` | 2 screws | 4: `+24 0V` sensors, `+24 0V` in | a PNP sensor takes its supply from here, and seven wires do not go under one screw. The sensor pair is after `F2` and `D2`; the input pair is where the board in service has its 24 V terminal |
+| `C2` | 100 µF 50 V, 6.3 × 7.7 | 47 µF 50 V | the larger part is not made in that can |
+| Indicators | designators only | `5V`, `24V`, `SERIAL`, `A`-`F`, `10V ADJ` | a designator says which part, not what it means |
+| Test points | none | `TP1`-`TP3` GND/5V/24V, `TP4`-`TP6` ACM/12V/AVI | bring-up without probing component legs |
+| Isolation | a pour boundary only | a dashed line and `ISOLATED` on the silkscreen | so nobody ties the VFD side to the board's ground |
+| Buck switch node | 17 mm, two vias, autorouted | 14 mm on the top layer, no vias (`SW_ROUTE`, locked) | the one net that swings 24 V at 150 kHz |
+| Handwheel supply | +5V straight out | through `F3`, a 200 mA PTC | a short in the handwheel cable no longer takes down the MCU |
+| MCU reset | 10k only | 10k and 10 nF | relay coils switching on a shared ground |
+| Spare opto channel | unused | `AUX`: a fourth VFD contact, port 2 pin 6 | a fault input back to Mach3 would have been the other use, but no port input pin is free |
 
 ## Signal path
 
@@ -172,8 +189,8 @@ the drawing's 16.2 mm pitch and so share an edge.
 
 The route comes from Freerouting 2.4.1, run headless: `tools/autoroute.py`
 exports a Specctra DSN through KiCad's own `pcbnew` module, Freerouting routes
-it, and the session is imported back. 1770 track segments - 1295 on the front,
-475 on the back - and 318 vias, 137 of them ground.
+it, and the session is imported back. 1886 track segments - 1373 on the front,
+513 on the back - and 345 vias, 140 of them ground.
 
 It takes two passes, because of the VFD port's isolation barrier. The first
 routes the board with the VFD side fenced off: its pads lose their nets on
@@ -183,7 +200,13 @@ of that - a locked track goes into the DSN as fixed wiring - and routes the
 VFD side alone. Freerouting's session then holds only what it routed itself,
 and importing a session replaces every track on the board, so `vfd-import`
 copies the first pass out, imports, keeps only the VFD side's wires, and puts
-the first pass back. Two more things learned there, recorded in the code: a
+the first pass back. After the review round the first pass left one
+board-side connection open, `C_DIR_IN` (port 1 pin 16 to `U2`), and a
+finishing Freerouting pass over a board with everything locked made no
+headway - it reads locked ends a hair off their pads and chases them. That
+one connection was drawn by `tools/route_one.py`, a grid A* over both layers
+that keeps clear of every other net and of the VFD side: 137 mm, six vias,
+DRC-clean. Two more things learned there, recorded in the code: a
 zone or track taken off a board in KiCad's Python and let go crashes the next
 call into the board, and so does a point read off a track that has since been
 deleted.
@@ -227,6 +250,8 @@ To re-route after a placement change:
     D:/KiCad/bin/python.exe tools/autoroute.py vfd-import
     D:/KiCad/bin/python.exe tools/autoroute.py stitch
     D:/KiCad/bin/python.exe tools/autoroute.py barrier
+    # only if DRC then reports a board-side connection still open:
+    D:/KiCad/bin/python.exe tools/route_one.py NET FROM_REF
 
 Java 25 and Freerouting live in `D:\software`. `tools/route.py`, the earlier
 router, is superseded and no longer used for this board.
@@ -251,8 +276,10 @@ board, next to what uses +5V; the owner asked for it by its input, and that
 is the better place - the buck's switch node, the one net on the board that
 swings 24 V at 150 kHz, is then as far from the MCU's crystal and the
 parallel-port lines as the board allows. `U4`'s pins face left: `C5` sits
-straight above VIN, `D4` level with SW, `L1` below. The switch node is 17 mm
-of track with two vias; hand-routing could shorten it.
+straight above VIN, `D4` beside the SW pin with its cathode down, `L1` below.
+The switch node is drawn by `build_pcb.py` itself (`SW_ROUTE`), not left to
+the router: 14 mm on the top layer, no vias, locked, and carried through
+every route import by `autoroute.py`.
 
 ## Spindle
 
@@ -448,8 +475,8 @@ crosses into the VFD side. Otherwise `fab/` gets:
 - `MACH3SIMPLE-BOM.md` / `.csv` - the bill of materials.
 - `MACH3SIMPLE-copper.pdf`, `-assembly.pdf` - to check against.
 
-The drill files were checked against the board: 477 plated holes, which is 318
-vias and 159 pad holes exactly, and 4 unplated - the mounting holes. The drill
+The drill files were checked against the board: 513 plated holes, which is 345
+vias and 168 pad holes exactly, and 4 unplated - the mounting holes. The drill
 maps are left out of the archive; they are Gerbers too, and a board house that
 takes every Gerber it is sent as a layer would try to make one.
 

@@ -8,7 +8,7 @@ board needs; buy spares of the 0603 passives and the optocouplers.
 | Qty | Part | Package | Refs | Note |
 |---:|---|---|---|---|
 | 3 | PC847 | DIP-16, SMD lead form (2.54 mm) | U10, U11, U12 | 4-channel opto, the SMD lead form (Sharp PC847XI, or LTV-847S) - there is no SOIC version |
-| 2 | 74HC245 | SOIC-20W_7.5x12.8mm_P1.27mm | U1, U2 |  |
+| 2 | 74AC245 | SOIC-20W_7.5x12.8mm_P1.27mm | U1, U2 | AC, not HC: 24 mA per output for opto-input stepper drivers. 74HC245 fits the same pads but is overloaded by more than about 6 mA per output |
 | 1 | 74HC14 | SOIC-14 | U16 | Schmitt inverter. Plain 74HC04 will not do |
 | 1 | 74HC4053 | SOIC-16 | U3 |  |
 | 1 | 78L05 | SOT-89-3 | U14 | SOT-89. Pin order OUT, GND, IN - not the TO-92 order |
@@ -39,24 +39,22 @@ board needs; buy spares of the 0603 passives and the optocouplers.
 | Qty | Part | Package | Refs | Note |
 |---:|---|---|---|---|
 | 13 | connector | Phoenix MKDS 1,5 5.0 mm, 3 way | J10, J11, J12, J13, J14, J15 ... J50 |  |
+| 2 | connector | Phoenix MKDS 1,5 5.0 mm, 4 way | J4, J30 |  |
 | 2 | connector | DB25 socket, right angle, PCB | J1, J2 |  |
-| 1 | connector | Phoenix MKDS 1,5 5.0 mm, 2 way | J4 |  |
-| 1 | connector | Phoenix MKDS 1,5 5.0 mm, 6 way | J20 |  |
-| 1 | connector | Phoenix MKDS 1,5 5.0 mm, 4 way | J30 |  |
+| 2 | connector | Phoenix MKDS 1,5 5.0 mm, 6 way | J5, J20 |  |
 | 1 | connector | 2x5 shrouded box header, 2.54 mm | J60 |  |
-| 1 | connector | Phoenix MKDS 1,5 5.0 mm, 5 way | J5 |  |
 
 ## Resistors
 
 | Qty | Part | Package | Refs | Note |
 |---:|---|---|---|---|
-| 24 | 10k | 0603 SMD | R2, R5, R30, R31, R32, R33 ... R99 |  |
+| 31 | 10k | 0603 SMD | R2, R5, R30, R31, R32, R33 ... R102 |  |
 | 8 | 1k | 0603 SMD | R1, R51, R60, R61, R62, R63, R64, R65 |  |
-| 8 | 4k7 | 0603 SMD | R42, R43, R80, R81, R82, R83, R84, R85 |  |
+| 6 | 330R | 0603 SMD | R40, R41, R93, R94, R95, R103 |  |
 | 6 | 4k7 | 1206 SMD | R10, R11, R12, R13, R14, R15 |  |
-| 5 | 330R | 0603 SMD | R40, R41, R93, R94, R95 |  |
 | 3 | 4x10k | 4 x 0603 array, convex (1206 size) | RN1, RN2, RN3 |  |
 | 2 | 100k | 0603 SMD | R97, R98 |  |
+| 2 | 4k7 | 0603 SMD | R42, R43 |  |
 | 1 | 100R | 0603 SMD | R101 |  |
 | 1 | 2k2 | 0603 SMD | R96 |  |
 | 1 | 8k2 | 0603 SMD | R100 |  |
@@ -72,16 +70,15 @@ board needs; buy spares of the 0603 passives and the optocouplers.
 | Qty | Part | Package | Refs | Note |
 |---:|---|---|---|---|
 | 12 | 100nF | 0603 SMD | C20, C21, C22, C23, C30, C31, C32, C40, C41, C42, C60, C66 |  |
-| 7 | 10nF | 0603 SMD | C10, C11, C12, C13, C14, C15, C67 |  |
+| 8 | 10nF | 0603 SMD | C10, C11, C12, C13, C14, C15, C35, C67 |  |
 | 2 | 1uF 50V X7R | 1206 SMD | C5, C61 |  |
 | 2 | 22pF | 0603 SMD | C33, C34 |  |
 | 2 | 470nF | 0603 SMD | C64, C65 |  |
-| 1 | 100uF 50V | electrolytic 6.3x7.7 SMD | C2 |  |
+| 2 | 47uF 50V | electrolytic 6.3x7.7 SMD | C2, C4 | low-ESR electrolytic, 50 V - the largest a 6.3 x 7.7 can holds |
 | 1 | 10uF 25V X7R | 1206 SMD | C62 |  |
 | 1 | 1nF 2kV | disc ceramic, THT | C3 |  |
 | 1 | 1uF | 0603 SMD | C63 |  |
 | 1 | 220uF 16V | electrolytic 6.3x7.7 SMD | C1 | low-ESR electrolytic - the buck output capacitor |
-| 1 | 47uF 50V | electrolytic 6.3x7.7 SMD | C4 | low-ESR electrolytic - the buck input capacitor |
 
 ## Inductor, fuse, crystal
 
@@ -89,6 +86,7 @@ board needs; buy spares of the 0603 passives and the optocouplers.
 |---:|---|---|---|---|
 | 1 | 16MHz | 3.2x2.5 mm SMD, 4 pad | Y1 | load capacitance CL 18-20 pF, to suit the 22 pF capacitors |
 | 1 | 1A slow | 1206 SMD | F2 |  |
+| 1 | 200mA hold PTC | 1206 SMD | F3 | resettable fuse, hold 0.2 A, 1206 (Bourns MF-MSMF020 or similar) |
 | 1 | 47uH | 12x12x8 mm shielded SMD | L1 | shielded power inductor, saturation current 1.5 A or more (SRR1260-470M, or the 47 uH from an LM2596 module) |
 
 ## Mechanical
@@ -101,7 +99,7 @@ board needs; buy spares of the 0603 passives and the optocouplers.
 
 - R3 (0R link - DO NOT FIT)
 
-**163 parts to fit** across 48 distinct lines.
+**167 parts to fit** across 46 distinct lines.
 
 Worth buying spare: the 0603 resistors and capacitors (they are pennies and
 they get lost), one or two extra PC847, and one spare ATmega328P.

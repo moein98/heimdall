@@ -77,12 +77,14 @@ NOTES = {
     'AM26LS31CD': 'RS-422 line driver. SN65LBC174 or DS26LS31 are drop-ins',
     'B2405S-2W': 'VERIFY THE PIN ORDER against the module in hand before power-up',
     'LM2596S-5': 'fixed 5 V version, not ADJ',
+    '74AC245': 'AC, not HC: 24 mA per output for opto-input stepper drivers. 74HC245 fits the same pads but is overloaded by more than about 6 mA per output',
+    'PTC': 'resettable fuse, hold 0.2 A, 1206 (Bourns MF-MSMF020 or similar)',
     'B2412S-1WR3': 'Mornsun 1 W isolated 24 V to 12 V, SIP-4. Pins 1 GND, 2 Vin, 3 0V, 4 +Vo',
     '78L05': 'SOT-89. Pin order OUT, GND, IN - not the TO-92 order',
     'LM358': 'LM358 or LM2904, SOIC-8',
     '47uH': 'shielded power inductor, saturation current 1.5 A or more (SRR1260-470M, or the 47 uH from an LM2596 module)',
     '220uF 16V': 'low-ESR electrolytic - the buck output capacitor',
-    '47uF 50V': 'low-ESR electrolytic - the buck input capacitor',
+    '47uF 50V': 'low-ESR electrolytic, 50 V - the largest a 6.3 x 7.7 can holds',
     '5k': 'multi-turn trimmer, sets 10.0 V at full speed',
     'ATmega328P-AU': 'TQFP-32. Runs on the 16 MHz crystal Y1',
     '16MHz': 'load capacitance CL 18-20 pF, to suit the 22 pF capacitors',
@@ -144,6 +146,8 @@ def main():
 
     groups, unfitted = {}, []
     for ref, (value, _part) in vals.items():
+        if ref.startswith('TP'):
+            continue                    # test points: bare pads, nothing to buy
         if 'DO NOT FIT' in value.upper():
             unfitted.append((ref, value))
             continue

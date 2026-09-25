@@ -25,7 +25,23 @@ board. Apart from the VFD port there is no galvanic isolation.
 | Top-edge terminal legends | Printed in reverse: `+24` over 0V, `+5` over the handwheel's B, `EMG` over X home | Fixed: the signals follow the legends, which follow the board in service |
 | Input optocouplers | PC847 on a SOIC-16 footprint, which no PC847 fits | SMD DIP-16 (2.54 mm), the package PC847 comes in |
 | Opto LED protection | Promised in the notes, missing from the circuit | A reverse diode across every input LED (`D20`-`D25`) |
-| Spindle | - | **New:** isolated 0-10 V (`AVI`/`ACM`) and FWD/REV (`FWD`/`REV`/`DCM`) on `J5`, from port 2 pins 7, 8, 9 |
+| Spindle | - | **New:** isolated 0-10 V (`AVI`/`ACM`) and FWD/REV/AUX (`FWD`/`REV`/`AUX`/`DCM`) on `J5`, from port 2 pins 7, 8, 9, 6 |
+
+A1 then had a design review of its own, which added:
+
+| | |
+|---|---|
+| Relay terminals | legends printed on the back (`RELAY A`, `NO COM NC` under each screw) and `RELAY A`-`F` on the front; A0/A1 had them on F.Fab only, which is not printed |
+| Relay LED resistors | 10k instead of 4k7 - 4k7 on 24 V was 103 mW in a 100 mW 0603 |
+| Axis buffers | 74AC245 (same pads): 24 mA per output for opto-input drivers |
+| Sensor supply | `J4` is four screws: `+24 0V` for the sensors (fused) and `+24 0V` in |
+| C2 | 47 uF 50 V - a 100 uF 50 V part does not come in a 6.3 x 7.7 can |
+| Labels | `5V`, `24V`, `SERIAL`, relay letters, `10V ADJ` instead of bare designators; a dashed line round the isolated VFD side |
+| Test points | `GND` `5V` `24V`, and on the VFD side `ACM` `12V` `AVI` |
+| Buck switch node | drawn by hand on the top layer, 14 mm and no vias (was 17 mm with two) |
+| Handwheel +5 V | through a 200 mA resettable fuse (`F3`) |
+| MCU reset | 10 nF against relay noise |
+| VFD `AUX` | the spare optocoupler channel as a fourth VFD contact, port 2 pin 6 |
 
 ## Regenerating
 
@@ -37,6 +53,8 @@ regenerate; an edit made in KiCad is lost at the next regeneration.
     D:/KiCad/bin/python.exe tools/build_pcb.py --force   # placement (discards routing)
     D:/KiCad/bin/python.exe tools/autoroute.py export    # then Freerouting, then:
     D:/KiCad/bin/python.exe tools/autoroute.py import
+    D:/KiCad/bin/python.exe tools/autoroute.py vfd-export  # then Freerouting on the _vfd DSN
+    D:/KiCad/bin/python.exe tools/autoroute.py vfd-import
     D:/KiCad/bin/python.exe tools/autoroute.py stitch
     KICAD_CLI=D:/KiCad/bin/kicad-cli.exe sh tools/validate.sh
     KICAD_CLI=D:/KiCad/bin/kicad-cli.exe sh tools/fab.sh
@@ -57,7 +75,8 @@ Mach3's `SendSerial`: `A`-`F` relay on, `a`-`f` off, `T` handwheel to THC,
 
 Port 2 pin 7 is the spindle PWM pin (PWMBase Freq 100 Hz), pin 8 is Output #1
 (M3, FWD) and pin 9 Output #2 (M4, REV), all active high. Trim `RV1` for
-10.0 V at full PWM. `docs/COMMISSIONING.md`, steps 6 to 8, has the settings.
+10.0 V at full PWM. Pin 6 can be Output #3, for `AUX`. `docs/COMMISSIONING.md`,
+steps 6 to 8, has the settings.
 
 `mach3 rs232 inputs 6 outputs 6 - pulse 5v - pnp sens.pdf` is the assembly
 drawing of the board in service that the layout was copied from.
