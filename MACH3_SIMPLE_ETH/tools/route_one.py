@@ -281,6 +281,41 @@ def cleanup(board):
     print('cleanup: %d vias removed' % gone)
 
 
+# Pins whose escape the A* could not find. Straight hand routes through
+# the space inside the pad rows were tried first and shorted: Freerouting
+# had already used that space. So: rip up the other nets' F.Cu segments
+# within RIP mm of the pin, route the pin into the gap, and let the next
+# normal run route the ripped nets again from DRC's list.
+STUCK = (('U201', '29'), ('U201', '62'), ('U301', '3'))
+RIP = 1.0
+
+
+def ripup(board, d):
+    fps = {f.GetReference(): f for f in board.GetFootprints()}
+    ripped = set()
+    for ref, num in STUCK:
+        pad = [p for p in fps[ref].Pads() if p.GetNumber() == num][0]
+        c = pad.GetPosition()
+        for t in list(board.GetTracks()):
+            if isinstance(t, pcbnew.PCB_VIA) or t.GetLayer() != pcbnew.F_Cu:
+                continue
+            if t.GetNetCode() == pad.GetNetCode():
+                continue
+            seg = pcbnew.SEG(t.GetStart(), t.GetEnd())
+            if seg.Distance(c) < FM(RIP):
+                ripped.add(t.GetNetname())
+                _KEEP.append(t)
+                board.Remove(t)
+    print('ripped up near the stuck pins: %s' % ', '.join(sorted(ripped)))
+    global ANY
+    for ref, num in STUCK:
+        pad = [p for p in fps[ref].Pads() if p.GetNumber() == num][0]
+        ANY = True
+        r = route(board, pad.GetNetname(), pad, pad)
+        print('  %s.%s %s: %s' % (ref, num, pad.GetNetname(),
+                                  '%d segments, %d vias, %.1f mm' % r if r else 'NO PATH'))
+
+
 def main():
     d = json.load(open(DRC))
     board = pcbnew.LoadBoard(BOARD)
@@ -296,6 +331,11 @@ def main():
                         _KEEP.append(x)
                         board.Remove(x)
     done = failed = 0
+    if 'ripup' in sys.argv:
+        ripup(board, d)
+        pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+        board.Save(BOARD)
+        return
     for v in d['unconnected_items']:
         its = v['items']
         if any(i['description'].startswith('Zone') for i in its):

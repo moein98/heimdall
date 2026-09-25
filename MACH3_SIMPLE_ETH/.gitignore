@@ -5,3 +5,4 @@ review/route/
 review/place.svg
 tools/__pycache__/
 hardware/~*.lck
+review/*.bak
