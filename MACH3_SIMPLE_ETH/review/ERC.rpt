@@ -1,0 +1,31 @@
+ERC report (2026-09-25T01:51:08, Encoding UTF8)
+Report includes: Errors, Warnings, Exclusions
+
+***** Sheet /
+[lib_symbol_mismatch]: Symbol 'MAX3485' doesn't match copy in library 'Interface_UART'
+    ; warning
+    @(88.90 mm, 91.44 mm): Symbol U801 [MAX3485]
+
+***** Sheet /Power - 24 V in, 5 V and 3.3 V made on board/
+
+***** Sheet /RP2350B, flash, USB, SD card/
+
+***** Sheet /Ethernet - W5500 and magjack/
+
+***** Sheet /Outputs - 8 axes step/dir, enable, buffered 5 V/
+
+***** Sheet /Inputs - 15 opto-isolated 24 V channels/
+
+***** Sheet /MCP23017 and six relays/
+
+***** Sheet /Spindle - isolated 0-10 V and FWD-REV-AUX/
+
+***** Sheet /RS485 VFD port and handwheel MCU/
+
+ ** ERC messages: 1  Errors 0  Warnings 1
+
+ ** Ignored checks:
+    - Global label only appears once in the schematic
+    - Four connection points are joined together
+    - SPICE model issue
+    - Assigned footprint doesn't match footprint filters

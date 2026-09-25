@@ -1,0 +1,93 @@
+{
+    "$schema": "https://schemas.kicad.org/erc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-09-25T01:51:16",
+    "ignored_checks": [
+        {
+            "description": "Global label only appears once in the schematic",
+            "key": "single_global_label"
+        },
+        {
+            "description": "Four connection points are joined together",
+            "key": "four_way_junction"
+        },
+        {
+            "description": "SPICE model issue",
+            "key": "simulation_model_issue"
+        },
+        {
+            "description": "Assigned footprint doesn't match footprint filters",
+            "key": "footprint_filter"
+        }
+    ],
+    "included_severities": [
+        "error",
+        "warning",
+        "exclusion"
+    ],
+    "kicad_version": "10.0.6",
+    "sheets": [
+        {
+            "path": "/",
+            "uuid_path": "/8c3d2b51-0001-4000-8000-000000000001",
+            "violations": [
+                {
+                    "description": "Symbol 'MAX3485' doesn't match copy in library 'Interface_UART'",
+                    "items": [
+                        {
+                            "description": "Symbol U801 [MAX3485]",
+                            "pos": {
+                                "x": 0.889,
+                                "y": 0.9144
+                            },
+                            "uuid": "5742ad24-1396-4845-a2ff-48ee9263241b"
+                        }
+                    ],
+                    "severity": "warning",
+                    "type": "lib_symbol_mismatch"
+                }
+            ]
+        },
+        {
+            "path": "/Power - 24 V in, 5 V and 3.3 V made on board/",
+            "uuid_path": "/8c3d2b51-0001-4000-8000-000000000001/8c3d2b51-0002-4000-8000-000000000001",
+            "violations": []
+        },
+        {
+            "path": "/RP2350B, flash, USB, SD card/",
+            "uuid_path": "/8c3d2b51-0001-4000-8000-000000000001/8c3d2b51-0002-4000-8000-000000000002",
+            "violations": []
+        },
+        {
+            "path": "/Ethernet - W5500 and magjack/",
+            "uuid_path": "/8c3d2b51-0001-4000-8000-000000000001/8c3d2b51-0002-4000-8000-000000000003",
+            "violations": []
+        },
+        {
+            "path": "/Outputs - 8 axes step/dir, enable, buffered 5 V/",
+            "uuid_path": "/8c3d2b51-0001-4000-8000-000000000001/8c3d2b51-0002-4000-8000-000000000004",
+            "violations": []
+        },
+        {
+            "path": "/Inputs - 15 opto-isolated 24 V channels/",
+            "uuid_path": "/8c3d2b51-0001-4000-8000-000000000001/8c3d2b51-0002-4000-8000-000000000005",
+            "violations": []
+        },
+        {
+            "path": "/MCP23017 and six relays/",
+            "uuid_path": "/8c3d2b51-0001-4000-8000-000000000001/8c3d2b51-0002-4000-8000-000000000006",
+            "violations": []
+        },
+        {
+            "path": "/Spindle - isolated 0-10 V and FWD-REV-AUX/",
+            "uuid_path": "/8c3d2b51-0001-4000-8000-000000000001/8c3d2b51-0002-4000-8000-000000000007",
+            "violations": []
+        },
+        {
+            "path": "/RS485 VFD port and handwheel MCU/",
+            "uuid_path": "/8c3d2b51-0001-4000-8000-000000000001/8c3d2b51-0002-4000-8000-000000000008",
+            "violations": []
+        }
+    ],
+    "source": "MACH3SIMPLEETH.kicad_sch"
+}
