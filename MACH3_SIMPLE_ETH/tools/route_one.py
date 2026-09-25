@@ -38,6 +38,9 @@ VIA_D, VIA_DR = 0.6, 0.3
 LAYERS = (pcbnew.F_Cu, pcbnew.In2_Cu, pcbnew.B_Cu)
 NX, NY = int(bp.W / G) + 1, int(bp.H / G) + 1
 ANY = False
+# Removed items stay referenced until the board is saved: pcbnew frees an
+# item when Python drops its last reference, and the next call segfaults.
+_KEEP = []
 POWER = {'+5V', '+3V3', '+3V3A', 'VBUS', 'V24', '+1V1', 'SP_12V', 'SP_5V', 'GND'}
 
 
@@ -270,6 +273,7 @@ def cleanup(board):
         touching = any(s.GetNetCode() == v.GetNetCode()
                        and (s.GetStart() == p or s.GetEnd() == p) for s in segs)
         if dup or (not touching and v.GetNetname() != 'GND'):
+            _KEEP.append(v)
             board.Remove(v)
             gone += 1
             continue
@@ -289,6 +293,7 @@ def main():
                     t = [t for t in board.GetTracks() if t.HitTest(pcbnew.VECTOR2I(
                         FM(it['pos']['x']), FM(it['pos']['y'])), FM(0.05))]
                     for x in t:
+                        _KEEP.append(x)
                         board.Remove(x)
     done = failed = 0
     for v in d['unconnected_items']:
